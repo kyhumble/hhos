@@ -40,6 +40,14 @@ Or an **EAS development build** / custom dev client. Camera + crypto land in lat
 
 Never log token or DEK values. Consent cache TTL: **7 days**.
 
+### Logout / revoke known
+
+- **Logout** clears `hhos.accessToken` and all known `hhos.consent-grant.*` entries (via a secure-store index).
+- Online `active-purposes` **without** `WOUND_PHOTO_CLINICAL` **clears** that patient's grant cache and denies capture (no stale cache).
+- Only true **transport offline** (or non-authoritative 5xx) may use a non-expired cached grant.
+- HTTP **401 / 403 / 404** never fall back to cache.
+
+
 ## Dev login
 
 1. Start API (`pnpm --filter @hhos/api dev`).

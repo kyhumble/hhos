@@ -1,4 +1,5 @@
 import { API_URL } from '../config';
+import { clearAllCachedClinicalGrants } from '../secure/consent-cache';
 import { clearAccessToken, getAccessToken } from '../secure/token-store';
 
 export class ApiError extends Error {
@@ -19,6 +20,34 @@ type RequestOptions = {
   /** Skip Authorization header (e.g. dev-login). */
   skipAuth?: boolean;
 };
+
+/**
+ * True when the failure is transport-level (device offline / DNS / aborted).
+ * HTTP responses (including 4xx/5xx) are not transport failures.
+ */
+export function isTransportFailure(err: unknown): boolean {
+  if (err instanceof ApiError) return false;
+  if (err instanceof TypeError) return true;
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    return (
+      msg.includes('network request failed') ||
+      msg.includes('failed to fetch') ||
+      msg.includes('networkerror') ||
+      msg.includes('aborted') ||
+      err.name === 'AbortError'
+    );
+  }
+  return false;
+}
+
+/**
+ * HTTP statuses that are authoritative while online: never fall back to consent cache.
+ * 401 session invalid; 403/404 caseload or patient denial / missing.
+ */
+export function isAuthoritativeOnlineDenial(status: number): boolean {
+  return status === 401 || status === 403 || status === 404;
+}
 
 /**
  * Minimal API client. Never logs response bodies (may contain PHI).
@@ -55,7 +84,9 @@ export async function apiRequest<T>(
   }
 
   if (res.status === 401 && !opts.skipAuth) {
+    // Session invalid while online — wipe token + consent grants
     await clearAccessToken();
+    await clearAllCachedClinicalGrants();
   }
 
   if (!res.ok) {

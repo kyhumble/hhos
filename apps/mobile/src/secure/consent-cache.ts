@@ -17,6 +17,9 @@ export type ConsentGrantCache = {
   expiresAt?: string | null;
 };
 
+/** Tracks patientIds with grant entries so logout can wipe them (SecureStore has no list API). */
+const CONSENT_GRANT_INDEX_KEY = 'hhos.consent-grant-index';
+
 function isExpired(entry: ConsentGrantCache, now = Date.now()): boolean {
   const fetched = Date.parse(entry.fetchedAt);
   if (Number.isNaN(fetched)) return true;
@@ -26,6 +29,47 @@ function isExpired(entry: ConsentGrantCache, now = Date.now()): boolean {
     if (!Number.isNaN(exp) && exp <= now) return true;
   }
   return false;
+}
+
+async function readGrantIndex(): Promise<string[]> {
+  try {
+    const raw = await SecureStore.getItemAsync(CONSENT_GRANT_INDEX_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((id): id is string => typeof id === 'string' && id.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+async function writeGrantIndex(patientIds: string[]): Promise<void> {
+  const unique = [...new Set(patientIds)];
+  if (unique.length === 0) {
+    try {
+      await SecureStore.deleteItemAsync(CONSENT_GRANT_INDEX_KEY);
+    } catch {
+      // ignore
+    }
+    return;
+  }
+  await SecureStore.setItemAsync(CONSENT_GRANT_INDEX_KEY, JSON.stringify(unique));
+}
+
+async function addToGrantIndex(patientId: string): Promise<void> {
+  const ids = await readGrantIndex();
+  if (!ids.includes(patientId)) {
+    ids.push(patientId);
+    await writeGrantIndex(ids);
+  }
+}
+
+async function removeFromGrantIndex(patientId: string): Promise<void> {
+  const ids = await readGrantIndex();
+  const next = ids.filter((id) => id !== patientId);
+  if (next.length !== ids.length) {
+    await writeGrantIndex(next);
+  }
 }
 
 export async function getCachedClinicalGrant(
@@ -61,6 +105,7 @@ export async function setCachedClinicalGrant(
     SecureKeys.consentGrant(entry.patientId),
     JSON.stringify(entry),
   );
+  await addToGrantIndex(entry.patientId);
 }
 
 export async function clearCachedClinicalGrant(
@@ -70,5 +115,30 @@ export async function clearCachedClinicalGrant(
     await SecureStore.deleteItemAsync(SecureKeys.consentGrant(patientId));
   } catch {
     // ignore missing keys
+  }
+  try {
+    await removeFromGrantIndex(patientId);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Wipe all known clinical purpose grants (logout / session clear).
+ * Architecture: consent-grant keys wipe on logout.
+ */
+export async function clearAllCachedClinicalGrants(): Promise<void> {
+  const ids = await readGrantIndex();
+  for (const patientId of ids) {
+    try {
+      await SecureStore.deleteItemAsync(SecureKeys.consentGrant(patientId));
+    } catch {
+      // ignore missing keys
+    }
+  }
+  try {
+    await SecureStore.deleteItemAsync(CONSENT_GRANT_INDEX_KEY);
+  } catch {
+    // ignore
   }
 }

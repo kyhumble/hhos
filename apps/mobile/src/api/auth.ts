@@ -1,5 +1,6 @@
-import { apiRequest } from './client';
+import { clearAllCachedClinicalGrants } from '../secure/consent-cache';
 import { clearAccessToken, setAccessToken } from '../secure/token-store';
+import { apiRequest } from './client';
 
 export type DevLoginUser = {
   id: string;
@@ -17,6 +18,15 @@ export type DevLoginResponse = {
   error?: { code: string; message: string };
 };
 
+/**
+ * Clear session secrets: JWT + all known consent-grant caches.
+ * Call on logout and when the server rejects the token (401).
+ */
+export async function clearSession(): Promise<void> {
+  await clearAccessToken();
+  await clearAllCachedClinicalGrants();
+}
+
 export async function devLogin(email: string): Promise<DevLoginResponse> {
   const data = await apiRequest<DevLoginResponse>('/v1/auth/dev-login', {
     method: 'POST',
@@ -31,7 +41,7 @@ export async function devLogin(email: string): Promise<DevLoginResponse> {
 }
 
 export async function logout(): Promise<void> {
-  await clearAccessToken();
+  await clearSession();
 }
 
 export async function fetchMe(): Promise<{ user: DevLoginUser }> {

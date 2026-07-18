@@ -18,5 +18,9 @@ export async function setAccessToken(token: string): Promise<void> {
 }
 
 export async function clearAccessToken(): Promise<void> {
-  await SecureStore.deleteItemAsync(SecureKeys.accessToken);
+  try {
+    await SecureStore.deleteItemAsync(SecureKeys.accessToken);
+  } catch {
+    // ignore missing keys / store unavailable
+  }
 }

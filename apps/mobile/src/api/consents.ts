@@ -1,5 +1,6 @@
 import { CLINICAL_PHOTO_PURPOSE } from '../config';
 import {
+  clearCachedClinicalGrant,
   setCachedClinicalGrant,
   type ConsentGrantCache,
 } from '../secure/consent-cache';
@@ -16,8 +17,9 @@ export type ActivePurposesResponse = {
 };
 
 /**
- * Fetch active purposes for a patient and cache WOUND_PHOTO_CLINICAL grant
- * (IDs only) under `hhos.consent-grant.{patientId}`.
+ * Fetch active purposes for a patient.
+ * When WOUND_PHOTO_CLINICAL is present, cache grant (IDs only).
+ * When absent, **clear** any prior cache for this patient (revoke known).
  */
 export async function fetchAndCacheActivePurposes(
   patientId: string,
@@ -45,5 +47,7 @@ export async function fetchAndCacheActivePurposes(
     return { response, clinicalGrant };
   }
 
+  // Authoritative online response: no clinical purpose → wipe stale grant
+  await clearCachedClinicalGrant(patientId);
   return { response, clinicalGrant: null };
 }

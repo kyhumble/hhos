@@ -8,7 +8,7 @@
     "prebuild": "expo prebuild",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"no lint configured\"",
-    "test": "echo \"no tests yet\"",
+    "test": "node --test src/api/client.gate.test.mjs",
     "build": "echo \"mobile build via EAS / prebuild — Expo Go unsupported for Phase 2 crypto\""
   },
   "dependencies": {
