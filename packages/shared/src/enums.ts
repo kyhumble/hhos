@@ -1,4 +1,4 @@
-/** Shared domain enums for HHOS Phase 0/1 */
+/** Shared domain enums for HHOS Phase 0–2 */
 
 export const UserStatus = ['active', 'disabled', 'invited'] as const;
 export type UserStatus = (typeof UserStatus)[number];

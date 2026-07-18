@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PaginationQuerySchema } from './common';
 import {
   AnnotationType,
   CaptureSource,
@@ -16,11 +17,12 @@ import {
 
 // ─── Shared nested objects ──────────────────────────────────────────────────
 
+/** Device metadata on photo/annotation requests (architecture: field name `os`). */
 export const DeviceInfoSchema = z.object({
   deviceId: z.string().min(8).max(128),
-  model: z.string().max(100),
-  os: z.string().max(50),
-  appVersion: z.string().max(50),
+  model: z.string().min(1).max(100),
+  os: z.string().min(1).max(50),
+  appVersion: z.string().min(1).max(50),
 });
 
 export type DeviceInfo = z.infer<typeof DeviceInfoSchema>;
@@ -112,13 +114,25 @@ export type InitiateWoundPhotoUploadInput = z.infer<
   typeof InitiateWoundPhotoUploadSchema
 >;
 
-/** 32-byte DEK as standard base64 (not URL-safe). Never log this body. */
+/** Decoded byte length of standard (non-URL-safe) base64; no Node Buffer dependency. */
+function standardBase64DecodedLength(b64: string): number | null {
+  if (!/^[A-Za-z0-9+/]+=*$/.test(b64) || b64.length % 4 !== 0) return null;
+  const padding = b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0;
+  return (b64.length / 4) * 3 - padding;
+}
+
+/**
+ * 32-byte DEK as standard base64 (not URL-safe), wire length exactly 44 with padding.
+ * Never log this body.
+ */
 export const WrapDekSchema = z.object({
   dekBase64: z
     .string()
-    .min(40)
-    .max(64)
-    .regex(/^[A-Za-z0-9+/]+=*$/),
+    .length(44)
+    .regex(/^[A-Za-z0-9+/]{43}=$/)
+    .refine((v) => standardBase64DecodedLength(v) === 32, {
+      message: 'dekBase64 must decode to exactly 32 bytes',
+    }),
 });
 
 export type WrapDekInput = z.infer<typeof WrapDekSchema>;
@@ -150,13 +164,27 @@ export type PatchWoundPhotoMeasurementsInput = z.infer<
 
 // ─── Annotations (child DEK, online-only) ───────────────────────────────────
 
-export const InitiateAnnotationUploadSchema = z.object({
-  clientAnnotationId: z.string().uuid(),
-  annotationType: z.enum(AnnotationType),
-  contentType: z.enum(['application/json', 'image/png']),
-  byteSize: z.number().int().positive().max(15_000_000),
-  device: DeviceInfoSchema,
-});
+const ANNOTATION_CONTENT_TYPE = {
+  vector_json: 'application/json',
+  overlay_png: 'image/png',
+} as const satisfies Record<(typeof AnnotationType)[number], string>;
+
+export const InitiateAnnotationUploadSchema = z
+  .object({
+    clientAnnotationId: z.string().uuid(),
+    annotationType: z.enum(AnnotationType),
+    contentType: z.enum(['application/json', 'image/png']),
+    byteSize: z.number().int().positive().max(15_000_000),
+    device: DeviceInfoSchema,
+  })
+  .refine(
+    (d) => d.contentType === ANNOTATION_CONTENT_TYPE[d.annotationType],
+    {
+      message:
+        'contentType must match annotationType (vector_json→application/json, overlay_png→image/png)',
+      path: ['contentType'],
+    },
+  );
 
 export type InitiateAnnotationUploadInput = z.infer<
   typeof InitiateAnnotationUploadSchema
@@ -174,12 +202,13 @@ export type CompleteAnnotationUploadInput = z.infer<
 
 // ─── Devices ────────────────────────────────────────────────────────────────
 
+/** Register uses same `os` field name as DeviceInfoSchema (maps to devices.os_version in DB). */
 export const RegisterDeviceSchema = z.object({
   deviceId: z.string().min(8).max(128),
   platform: z.enum(DevicePlatform),
-  model: z.string().max(100).optional(),
-  osVersion: z.string().max(50).optional(),
-  appVersion: z.string().max(50),
+  model: z.string().min(1).max(100).optional(),
+  os: z.string().min(1).max(50).optional(),
+  appVersion: z.string().min(1).max(50),
 });
 
 export type RegisterDeviceInput = z.infer<typeof RegisterDeviceSchema>;
@@ -198,13 +227,13 @@ export const CompleteClinicalTaskSchema = z.object({
 
 export type CompleteClinicalTaskInput = z.infer<typeof CompleteClinicalTaskSchema>;
 
-export const ListClinicalTasksQuerySchema = z.object({
-  status: z.enum(ClinicalTaskStatus).optional(),
-  taskType: z.enum(ClinicalTaskType).optional(),
-  priority: z.enum(ClinicalTaskPriority).optional(),
-  episodeId: z.string().uuid().optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(25),
-});
+export const ListClinicalTasksQuerySchema = z
+  .object({
+    status: z.enum(ClinicalTaskStatus).optional(),
+    taskType: z.enum(ClinicalTaskType).optional(),
+    priority: z.enum(ClinicalTaskPriority).optional(),
+    episodeId: z.string().uuid().optional(),
+  })
+  .merge(PaginationQuerySchema);
 
 export type ListClinicalTasksQuery = z.infer<typeof ListClinicalTasksQuerySchema>;
