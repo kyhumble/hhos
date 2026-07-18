@@ -8,7 +8,7 @@
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"no lint configured\"",
-    "test": "tsx --test src/common/redact.spec.ts src/consents/assert-consent-purpose.spec.ts src/audit/audit.service.spec.ts"
+    "test": "tsx --test src/common/redact.spec.ts src/consents/assert-consent-purpose.spec.ts src/audit/audit.service.spec.ts src/devices/devices.service.spec.ts"
   },
   "dependencies": {
     "@hhos/db": "workspace:*",

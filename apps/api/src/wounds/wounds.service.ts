@@ -90,7 +90,7 @@ export class WoundsService {
     user: AuthUser,
     episodeId: string,
     input: CreateWoundInput,
-    meta?: { requestId?: string; ip?: string },
+    meta?: { requestId?: string; ip?: string; userAgent?: string },
   ) {
     if (input.episodeId !== episodeId) {
       throw new BadRequestException({
@@ -148,6 +148,7 @@ export class WoundsService {
           after: row,
           requestId: meta?.requestId,
           ip: meta?.ip,
+          userAgent: meta?.userAgent,
         },
         tx,
       );
@@ -160,7 +161,7 @@ export class WoundsService {
     user: AuthUser,
     id: string,
     input: UpdateWoundInput,
-    meta?: { requestId?: string; ip?: string },
+    meta?: { requestId?: string; ip?: string; userAgent?: string },
   ) {
     const [before] = await this.db
       .select()
@@ -215,6 +216,7 @@ export class WoundsService {
           after: updated,
           requestId: meta?.requestId,
           ip: meta?.ip,
+          userAgent: meta?.userAgent,
         },
         tx,
       );

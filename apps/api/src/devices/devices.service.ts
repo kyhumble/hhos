@@ -14,6 +14,24 @@ import type { AuthUser } from '../common/auth.types';
 
 export type DeviceRow = typeof devices.$inferSelect;
 
+function deviceRevokedCannotRegister(): ForbiddenException {
+  return new ForbiddenException({
+    error: {
+      code: 'DEVICE_REVOKED',
+      message: 'Device has been revoked and cannot re-register',
+    },
+  });
+}
+
+function deviceRevoked(): ForbiddenException {
+  return new ForbiddenException({
+    error: {
+      code: 'DEVICE_REVOKED',
+      message: 'Device has been revoked',
+    },
+  });
+}
+
 @Injectable()
 export class DevicesService {
   constructor(
@@ -47,6 +65,7 @@ export class DevicesService {
   /**
    * Upsert register on (org_id, device_id).
    * Active → refresh last_seen_at / metadata; revoked → 403 DEVICE_REVOKED.
+   * UPDATE is conditional on status=active so a concurrent revoke cannot be undone.
    */
   async register(
     user: AuthUser,
@@ -56,41 +75,13 @@ export class DevicesService {
     const existing = await this.findByOrgDevice(user.orgId, input.deviceId);
 
     if (existing?.status === 'revoked') {
-      throw new ForbiddenException({
-        error: {
-          code: 'DEVICE_REVOKED',
-          message: 'Device has been revoked and cannot re-register',
-        },
-      });
+      throw deviceRevokedCannotRegister();
     }
 
     if (existing) {
-      const [updated] = await this.db
-        .update(devices)
-        .set({
-          userId: user.id,
-          platform: input.platform,
-          model: input.model ?? existing.model,
-          osVersion: input.os ?? existing.osVersion,
-          appVersion: input.appVersion,
-          status: 'active',
-          lastSeenAt: new Date(),
-        })
-        .where(eq(devices.id, existing.id))
-        .returning();
-
-      await this.audit.writeFromUser(user, {
-        action: 'device.register',
-        resourceType: 'device',
-        resourceId: existing.id,
-        after: this.safeDevice(updated ?? existing),
-        requestId: meta?.requestId,
-        ip: meta?.ip,
-        userAgent: meta?.userAgent,
-        deviceId: input.deviceId,
-      });
-
-      return updated ?? existing;
+      const updated = await this.refreshActiveRegistration(existing, user, input);
+      await this.auditRegister(user, input.deviceId, updated, meta);
+      return updated;
     }
 
     try {
@@ -113,17 +104,7 @@ export class DevicesService {
         throw new Error('device insert returned no row');
       }
 
-      await this.audit.writeFromUser(user, {
-        action: 'device.register',
-        resourceType: 'device',
-        resourceId: created.id,
-        after: this.safeDevice(created),
-        requestId: meta?.requestId,
-        ip: meta?.ip,
-        userAgent: meta?.userAgent,
-        deviceId: input.deviceId,
-      });
-
+      await this.auditRegister(user, input.deviceId, created, meta);
       return created;
     } catch (err) {
       // Concurrent register: re-read and apply revoked / refresh rules once.
@@ -131,40 +112,12 @@ export class DevicesService {
       const raced = await this.findByOrgDevice(user.orgId, input.deviceId);
       if (!raced) throw err;
       if (raced.status === 'revoked') {
-        throw new ForbiddenException({
-          error: {
-            code: 'DEVICE_REVOKED',
-            message: 'Device has been revoked and cannot re-register',
-          },
-        });
+        throw deviceRevokedCannotRegister();
       }
 
-      const [updated] = await this.db
-        .update(devices)
-        .set({
-          userId: user.id,
-          platform: input.platform,
-          model: input.model ?? raced.model,
-          osVersion: input.os ?? raced.osVersion,
-          appVersion: input.appVersion,
-          status: 'active',
-          lastSeenAt: new Date(),
-        })
-        .where(eq(devices.id, raced.id))
-        .returning();
-
-      await this.audit.writeFromUser(user, {
-        action: 'device.register',
-        resourceType: 'device',
-        resourceId: raced.id,
-        after: this.safeDevice(updated ?? raced),
-        requestId: meta?.requestId,
-        ip: meta?.ip,
-        userAgent: meta?.userAgent,
-        deviceId: input.deviceId,
-      });
-
-      return updated ?? raced;
+      const updated = await this.refreshActiveRegistration(raced, user, input);
+      await this.auditRegister(user, input.deviceId, updated, meta);
+      return updated;
     }
   }
 
@@ -193,16 +146,21 @@ export class DevicesService {
       const [updated] = await tx
         .update(devices)
         .set({ status: 'revoked' })
-        .where(eq(devices.id, existing.id))
+        .where(and(eq(devices.id, existing.id), eq(devices.status, 'active')))
         .returning();
+
+      // Concurrent revoke: already revoked — return current row without double-insert.
+      if (!updated) {
+        const again = await this.findByOrgDevice(user.orgId, deviceId);
+        if (again?.status === 'revoked') return again;
+        throw deviceRevoked();
+      }
 
       await tx.insert(deviceRevocations).values({
         deviceRowId: existing.id,
         revokedByUserId: user.id,
         reason: input.reason,
       });
-
-      const row = updated ?? { ...existing, status: 'revoked' as const };
 
       await this.audit.writeFromUser(
         user,
@@ -211,7 +169,7 @@ export class DevicesService {
           resourceType: 'device',
           resourceId: existing.id,
           before: this.safeDevice(existing),
-          after: this.safeDevice(row),
+          after: this.safeDevice(updated),
           reason: input.reason,
           requestId: meta?.requestId,
           ip: meta?.ip,
@@ -221,12 +179,16 @@ export class DevicesService {
         tx,
       );
 
-      return row;
+      return updated;
     });
   }
 
   /**
    * Gate for photo/annotation ops (PR 5b+). Touches last_seen_at when active.
+   * UPDATE is conditional on status=active so a concurrent revoke cannot pass the gate.
+   *
+   * Note: gate is (org_id, device_id) + active only — does not bind device to the
+   * calling userId (MVP; callers must not assume user ownership).
    */
   async assertActiveDevice(
     orgId: string,
@@ -244,21 +206,73 @@ export class DevicesService {
     }
 
     if (row.status === 'revoked') {
-      throw new ForbiddenException({
-        error: {
-          code: 'DEVICE_REVOKED',
-          message: 'Device has been revoked',
-        },
-      });
+      throw deviceRevoked();
     }
 
     const [touched] = await this.db
       .update(devices)
       .set({ lastSeenAt: new Date() })
-      .where(eq(devices.id, row.id))
+      .where(and(eq(devices.id, row.id), eq(devices.status, 'active')))
       .returning();
 
-    return touched ?? row;
+    if (!touched || touched.status !== 'active') {
+      throw deviceRevoked();
+    }
+
+    return touched;
+  }
+
+  /**
+   * Refresh metadata only while the row remains active.
+   * Zero rows updated ⇒ concurrent revoke ⇒ DEVICE_REVOKED (fail closed).
+   */
+  private async refreshActiveRegistration(
+    existing: DeviceRow,
+    user: AuthUser,
+    input: RegisterDeviceInput,
+  ): Promise<DeviceRow> {
+    const [updated] = await this.db
+      .update(devices)
+      .set({
+        userId: user.id,
+        platform: input.platform,
+        model: input.model ?? existing.model,
+        osVersion: input.os ?? existing.osVersion,
+        appVersion: input.appVersion,
+        status: 'active',
+        lastSeenAt: new Date(),
+      })
+      .where(and(eq(devices.id, existing.id), eq(devices.status, 'active')))
+      .returning();
+
+    if (!updated) {
+      // Re-read for clearer post-condition; always fail closed as revoked.
+      const again = await this.findByOrgDevice(user.orgId, input.deviceId);
+      if (!again || again.status === 'revoked') {
+        throw deviceRevokedCannotRegister();
+      }
+      throw deviceRevokedCannotRegister();
+    }
+
+    return updated;
+  }
+
+  private async auditRegister(
+    user: AuthUser,
+    deviceId: string,
+    row: DeviceRow,
+    meta?: { requestId?: string; ip?: string; userAgent?: string },
+  ): Promise<void> {
+    await this.audit.writeFromUser(user, {
+      action: 'device.register',
+      resourceType: 'device',
+      resourceId: row.id,
+      after: this.safeDevice(row),
+      requestId: meta?.requestId,
+      ip: meta?.ip,
+      userAgent: meta?.userAgent,
+      deviceId,
+    });
   }
 
   private async findByOrgDevice(

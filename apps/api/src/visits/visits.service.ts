@@ -90,7 +90,7 @@ export class VisitsService {
     user: AuthUser,
     episodeId: string,
     input: CreateVisitInput,
-    meta?: { requestId?: string; ip?: string },
+    meta?: { requestId?: string; ip?: string; userAgent?: string },
   ) {
     if (input.episodeId !== episodeId) {
       throw new BadRequestException({
@@ -177,6 +177,7 @@ export class VisitsService {
             after: row,
             requestId: meta?.requestId,
             ip: meta?.ip,
+            userAgent: meta?.userAgent,
           },
           tx,
         );
@@ -219,7 +220,7 @@ export class VisitsService {
     user: AuthUser,
     id: string,
     input: UpdateVisitInput,
-    meta?: { requestId?: string; ip?: string },
+    meta?: { requestId?: string; ip?: string; userAgent?: string },
   ) {
     const [before] = await this.db
       .select()
@@ -273,6 +274,7 @@ export class VisitsService {
           after: updated,
           requestId: meta?.requestId,
           ip: meta?.ip,
+          userAgent: meta?.userAgent,
         },
         tx,
       );
