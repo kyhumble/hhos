@@ -194,3 +194,95 @@ export type EpisodeFlag = (typeof EpisodeFlag)[number];
 
 /** Default SOC due window from referral received_at (hours). Compliance must approve prod. */
 export const DEFAULT_SOC_DUE_HOURS = 48;
+
+// ─── Phase 2: wounds, visits, photos, devices, clinical tasks ───────────────
+
+export const WoundLaterality = [
+  'left',
+  'right',
+  'bilateral',
+  'midline',
+  'na',
+] as const;
+export type WoundLaterality = (typeof WoundLaterality)[number];
+
+export const WoundStatus = ['active', 'healed', 'transferred', 'void'] as const;
+export type WoundStatus = (typeof WoundStatus)[number];
+
+/** Controlled wound-type list (shared); free-text not allowed on create. */
+export const WoundType = [
+  'pressure_injury',
+  'venous_ulcer',
+  'arterial_ulcer',
+  'diabetic_ulcer',
+  'surgical',
+  'traumatic',
+  'burn',
+  'other',
+] as const;
+export type WoundType = (typeof WoundType)[number];
+
+export const VisitType = ['soc', 'routine', 'prn', 'other'] as const;
+export type VisitType = (typeof VisitType)[number];
+
+export const VisitStatus = ['in_progress', 'completed', 'cancelled'] as const;
+export type VisitStatus = (typeof VisitStatus)[number];
+
+export const WoundPhotoStatus = [
+  'pending_upload',
+  'pending_put',
+  'available',
+  'failed',
+  'abandoned',
+  'soft_deleted',
+] as const;
+export type WoundPhotoStatus = (typeof WoundPhotoStatus)[number];
+
+/** Clinical capture source — gallery import is never allowed (AGENTS.md). */
+export const CaptureSource = ['app_camera'] as const;
+export type CaptureSource = (typeof CaptureSource)[number];
+
+export const MeasurementMethod = [
+  'manual_ruler',
+  'app_overlay',
+  'unknown',
+] as const;
+export type MeasurementMethod = (typeof MeasurementMethod)[number];
+
+export const AnnotationType = ['vector_json', 'overlay_png'] as const;
+export type AnnotationType = (typeof AnnotationType)[number];
+
+/** Annotation object lifecycle mirrors photo pending/available pattern. */
+export const AnnotationStatus = [
+  'pending_upload',
+  'pending_put',
+  'available',
+  'failed',
+  'abandoned',
+  'soft_deleted',
+] as const;
+export type AnnotationStatus = (typeof AnnotationStatus)[number];
+
+export const ClinicalTaskType = [
+  'large_wound_review',
+  'photo_qa',
+  'other',
+] as const;
+export type ClinicalTaskType = (typeof ClinicalTaskType)[number];
+
+export const ClinicalTaskStatus = [
+  'open',
+  'in_progress',
+  'done',
+  'cancelled',
+] as const;
+export type ClinicalTaskStatus = (typeof ClinicalTaskStatus)[number];
+
+export const ClinicalTaskPriority = ['routine', 'urgent'] as const;
+export type ClinicalTaskPriority = (typeof ClinicalTaskPriority)[number];
+
+export const DevicePlatform = ['ios', 'android'] as const;
+export type DevicePlatform = (typeof DevicePlatform)[number];
+
+export const DeviceStatus = ['active', 'revoked'] as const;
+export type DeviceStatus = (typeof DeviceStatus)[number];

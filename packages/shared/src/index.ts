@@ -5,3 +5,5 @@ export * from './patient';
 export * from './referral';
 export * from './episode';
 export * from './consent';
+export * from './wound-photo';
+export * from './photo-crypto-vectors';

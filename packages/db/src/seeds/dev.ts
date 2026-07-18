@@ -74,7 +74,8 @@ async function main() {
     })
     .onConflictDoNothing();
 
-  // Permissions
+  // Permissions — re-run this seed after pulling Phase 2+ permission codes so
+  // `permissions` / `role_permissions` pick up wound_photo:*, clinical_task:*, device:*.
   for (const code of ALL_PERMISSIONS) {
     await db.insert(permissions).values({ code, description: code }).onConflictDoNothing();
   }

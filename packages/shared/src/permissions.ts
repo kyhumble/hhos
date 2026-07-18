@@ -19,6 +19,14 @@ export const Permission = {
   USER_ADMIN: 'user:admin',
   ORG_SETTINGS: 'org:settings',
   BREAK_GLASS_PHI: 'break_glass:phi',
+  // Phase 2 — wound photos (content routes check these only; never document:read)
+  WOUND_PHOTO_CAPTURE: 'wound_photo:capture',
+  WOUND_PHOTO_READ: 'wound_photo:read',
+  WOUND_PHOTO_DELETE: 'wound_photo:delete',
+  CLINICAL_TASK_READ: 'clinical_task:read',
+  CLINICAL_TASK_WRITE: 'clinical_task:write',
+  DEVICE_REGISTER: 'device:register',
+  DEVICE_REVOKE: 'device:revoke',
 } as const;
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission];
@@ -27,7 +35,10 @@ export const ALL_PERMISSIONS: PermissionCode[] = Object.values(Permission);
 
 const R = Permission;
 
-/** Role → permission map (Phase 1 RBAC v1) */
+/**
+ * Role → permission map (Phase 1 + Phase 2 wound photos).
+ * K15: billing has NO wound_photo:* (document:read does not grant photo content).
+ */
 export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
   field_rn: [
     R.PATIENT_READ,
@@ -38,6 +49,9 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.CONSENT_READ,
     R.DOCUMENT_UPLOAD,
     R.DOCUMENT_READ,
+    R.WOUND_PHOTO_CAPTURE,
+    R.WOUND_PHOTO_READ,
+    R.DEVICE_REGISTER, // self-register only (enforced in service)
   ],
   intake_coordinator: [
     R.PATIENT_READ,
@@ -54,6 +68,7 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.CHECKLIST_WRITE,
     R.DOCUMENT_UPLOAD,
     R.DOCUMENT_READ,
+    R.DEVICE_REGISTER,
   ],
   clinical_lead: [
     R.PATIENT_READ,
@@ -71,6 +86,12 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.DOCUMENT_UPLOAD,
     R.DOCUMENT_READ,
     R.AUDIT_READ, // limited in service layer
+    R.WOUND_PHOTO_CAPTURE,
+    R.WOUND_PHOTO_READ,
+    R.WOUND_PHOTO_DELETE,
+    R.CLINICAL_TASK_READ,
+    R.CLINICAL_TASK_WRITE,
+    R.DEVICE_REGISTER,
   ],
   billing: [
     R.PATIENT_READ,
@@ -78,6 +99,8 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.CONSENT_READ,
     R.COVERAGE_WRITE,
     R.DOCUMENT_READ,
+    // K15: no wound_photo:*; DOCUMENT_READ must never authorize photo content
+    R.DEVICE_REGISTER,
   ],
   compliance: [
     R.PATIENT_READ,
@@ -87,6 +110,11 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.DOCUMENT_READ,
     R.AUDIT_READ,
     R.BREAK_GLASS_PHI,
+    R.WOUND_PHOTO_READ,
+    R.WOUND_PHOTO_DELETE,
+    R.CLINICAL_TASK_READ,
+    R.DEVICE_REGISTER,
+    R.DEVICE_REVOKE,
   ],
   admin: [...ALL_PERMISSIONS],
 };
