@@ -13,7 +13,12 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ title: 'HHOS Field' }} />
+        <Stack.Screen name="login" options={{ title: 'Sign in' }} />
         <Stack.Screen name="episodes" options={{ title: 'My episodes' }} />
+        <Stack.Screen
+          name="capture"
+          options={{ title: 'Wound photo capture' }}
+        />
       </Stack>
     </>
   );
