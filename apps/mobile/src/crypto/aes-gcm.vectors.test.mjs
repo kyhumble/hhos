@@ -4,6 +4,15 @@
  * Mirrors apps/mobile/src/crypto/aes-gcm.ts (react-native-quick-crypto API)
  * using node:crypto so tests run without a native binary. Ciphertext must
  * match server (apps/api photo-crypto/aes-gcm-frame) for the same fixtures.
+ *
+ * DRIFT CHECKLIST — when changing production crypto, update this mirror too:
+ * 1. ALGO / IV_LEN / TAG_LEN / KEY_LEN constants (must stay 12 / 16 / 32)
+ * 2. Frame order: iv || tag || ciphertext (no AAD)
+ * 3. getAuthTag after final(); setAuthTag before update on decrypt
+ * 4. Shared PHOTO_CRYPTO_VECTORS still pass encrypt + decrypt
+ * 5. apps/api/src/photo-crypto/aes-gcm-frame.ts remains byte-compatible
+ *
+ * Future: optional pure-TS frame/unframe in @hhos/shared (encrypt stays platform-specific).
  */
 import assert from 'node:assert/strict';
 import {

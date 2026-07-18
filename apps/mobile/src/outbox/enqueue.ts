@@ -6,24 +6,49 @@ import { getOutboxDb } from './db';
 import {
   OutboxStatus,
   type EnqueuePhotoInput,
+  type OutboxMetaJson,
   type PhotoOutboxRow,
 } from './types';
+
+/** Only these keys may appear in meta_json (typed OutboxMetaJson). */
+const ALLOWED_META_KEYS = new Set<keyof OutboxMetaJson>([
+  'contentType',
+  'widthPx',
+  'heightPx',
+  'capturedAt',
+  'captureSource',
+  'purposeCode',
+]);
+
+/**
+ * Serialize meta after verifying only allowlisted keys are present.
+ * Prefer typed OutboxMetaJson over string heuristics for secret names.
+ */
+export function serializeOutboxMeta(meta: OutboxMetaJson): string {
+  const keys = Object.keys(meta) as (keyof OutboxMetaJson)[];
+  for (const key of keys) {
+    if (!ALLOWED_META_KEYS.has(key)) {
+      throw new Error('OUTBOX_META_UNEXPECTED_KEY');
+    }
+  }
+  if (meta.contentType !== 'image/jpeg') {
+    throw new Error('OUTBOX_META_INVALID_CONTENT_TYPE');
+  }
+  if (meta.captureSource !== 'app_camera') {
+    throw new Error('OUTBOX_META_INVALID_CAPTURE_SOURCE');
+  }
+  if (meta.purposeCode !== 'WOUND_PHOTO_CLINICAL') {
+    throw new Error('OUTBOX_META_INVALID_PURPOSE');
+  }
+  return JSON.stringify(meta);
+}
 
 export async function enqueuePhotoOutbox(
   input: EnqueuePhotoInput,
 ): Promise<PhotoOutboxRow> {
   const db = await getOutboxDb();
   const now = Date.now();
-  const metaJson = JSON.stringify(input.meta);
-
-  // Guard: refuse if meta somehow included DEK-like fields
-  if (
-    /dek/i.test(metaJson) ||
-    metaJson.includes('wrapped') ||
-    metaJson.includes('privateKey')
-  ) {
-    throw new Error('OUTBOX_META_MUST_NOT_CONTAIN_SECRETS');
-  }
+  const metaJson = serializeOutboxMeta(input.meta);
 
   await db.runAsync(
     `INSERT INTO photo_outbox (

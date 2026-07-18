@@ -2,20 +2,24 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { ClinicalCamera } from '../src/camera/ClinicalCamera';
-import { captureEncryptAndEnqueue } from '../src/camera/capture-and-enqueue';
+import {
+  captureEncryptAndEnqueue,
+  cleanupPlaintextUri,
+  type CaptureAndEnqueueResult,
+} from '../src/camera/capture-and-enqueue';
 import { requireWoundPhotoClinical } from '../src/consent/require-wound-photo-clinical';
 import type { ConsentGrantCache } from '../src/secure/consent-cache';
-import type { CaptureAndEnqueueResult } from '../src/camera/capture-and-enqueue';
 
 /**
  * Clinical capture — consent-gated, app camera only, encrypt + outbox enqueue.
- * Never offers gallery import.
+ * Flow: shutter → review (keep/retake) → encrypt. Never offers gallery import.
  */
 export default function CaptureScreen() {
   const router = useRouter();
@@ -37,6 +41,8 @@ export default function CaptureScreen() {
   const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState<CaptureAndEnqueueResult | null>(null);
   const [captureError, setCaptureError] = useState<string | null>(null);
+  /** Pending review URI after shutter, before encrypt (retake/keep). */
+  const [pendingUri, setPendingUri] = useState<string | null>(null);
 
   const evaluate = useCallback(async () => {
     setLoading(true);
@@ -59,54 +65,66 @@ export default function CaptureScreen() {
     void evaluate();
   }, [evaluate]);
 
-  const onCaptured = useCallback(
-    async (localUri: string) => {
-      if (!patientId || !episodeId || !grant) {
-        setCaptureError('Missing patient, episode, or consent grant.');
+  const discardPending = useCallback(async () => {
+    const uri = pendingUri;
+    setPendingUri(null);
+    await cleanupPlaintextUri(uri);
+  }, [pendingUri]);
+
+  const onCaptured = useCallback((localUri: string) => {
+    setCaptureError(null);
+    setPendingUri(localUri);
+  }, []);
+
+  const onRetake = useCallback(() => {
+    void discardPending();
+  }, [discardPending]);
+
+  const onKeep = useCallback(async () => {
+    if (!patientId || !episodeId || !grant || !pendingUri) {
+      setCaptureError('Missing patient, episode, consent grant, or photo.');
+      await cleanupPlaintextUri(pendingUri);
+      setPendingUri(null);
+      return;
+    }
+
+    setProcessing(true);
+    setCaptureError(null);
+    const localUri = pendingUri;
+
+    try {
+      // Re-check gate at keep (cached grant may expire; online refresh preferred)
+      const gate = await requireWoundPhotoClinical(patientId, {
+        refreshOnline: true,
+      });
+      if (!gate.allowed) {
+        setBlockedMessage(gate.message);
+        setGrant(null);
+        await cleanupPlaintextUri(localUri);
+        setPendingUri(null);
         return;
       }
-      setProcessing(true);
-      setCaptureError(null);
-      try {
-        // Re-check gate at shutter (cached grant may expire; online refresh preferred)
-        const gate = await requireWoundPhotoClinical(patientId, {
-          refreshOnline: true,
-        });
-        if (!gate.allowed) {
-          setBlockedMessage(gate.message);
-          setGrant(null);
-          return;
-        }
 
-        const enqueued = await captureEncryptAndEnqueue({
-          cameraImageUri: localUri,
-          patientId,
-          episodeId,
-          consentRecordId: gate.grant.consentRecordId,
-          woundId: woundId ?? null,
-          visitId: visitId ?? null,
-        });
-        setResult(enqueued);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Encrypt / outbox failed';
-        // User-facing: no PHI, map known codes
-        if (msg === 'GALLERY_IMPORT_FORBIDDEN') {
-          setCaptureError(
-            'Gallery import is not allowed for clinical wound photos.',
-          );
-        } else if (msg === 'PHOTO_PLAINTEXT_TOO_LARGE') {
-          setCaptureError(
-            'Photo too large after normalize (max 12 MB). Move closer and recapture.',
-          );
-        } else {
-          setCaptureError(msg);
-        }
-      } finally {
-        setProcessing(false);
-      }
-    },
-    [patientId, episodeId, grant, woundId, visitId],
-  );
+      const enqueued = await captureEncryptAndEnqueue({
+        cameraImageUri: localUri,
+        patientId,
+        episodeId,
+        consentRecordId: gate.grant.consentRecordId,
+        woundId: woundId ?? null,
+        visitId: visitId ?? null,
+      });
+      setPendingUri(null);
+      setResult(enqueued);
+    } catch (e) {
+      const code = e instanceof Error ? e.message : 'ENCRYPT_OUTBOX_FAILED';
+      setCaptureError(mapCaptureError(code));
+      // captureEncryptAndEnqueue cleans temps in finally; still scrub pending
+      await cleanupPlaintextUri(localUri);
+      setPendingUri(null);
+    } finally {
+      setProcessing(false);
+    }
+  }, [patientId, episodeId, grant, pendingUri, woundId, visitId]);
 
   if (loading) {
     return (
@@ -193,6 +211,31 @@ export default function CaptureScreen() {
     );
   }
 
+  // Review step: keep / retake before encrypt
+  if (pendingUri && !processing) {
+    return (
+      <View style={styles.cameraRoot}>
+        <View style={styles.grantBar}>
+          <Text style={styles.grantBarText}>Review capture · keep or retake</Text>
+        </View>
+        <Image source={{ uri: pendingUri }} style={styles.preview} resizeMode="contain" />
+        {captureError ? (
+          <View style={styles.errorBar}>
+            <Text style={styles.errorBarText}>{captureError}</Text>
+          </View>
+        ) : null}
+        <View style={styles.reviewActions}>
+          <Pressable style={styles.retakeBtn} onPress={onRetake}>
+            <Text style={styles.retakeText}>Retake</Text>
+          </Pressable>
+          <Pressable style={styles.keepBtn} onPress={() => void onKeep()}>
+            <Text style={styles.keepText}>Keep & encrypt</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.cameraRoot}>
       <View style={styles.grantBar}>
@@ -219,6 +262,32 @@ export default function CaptureScreen() {
       ) : null}
     </View>
   );
+}
+
+/** Map internal codes to user-safe copy (no raw native/URI strings). */
+function mapCaptureError(code: string): string {
+  switch (code) {
+    case 'GALLERY_IMPORT_FORBIDDEN':
+      return 'Gallery import is not allowed for clinical wound photos.';
+    case 'PHOTO_PLAINTEXT_TOO_LARGE':
+      return 'Photo too large after normalize (max 12 MB). Move closer and recapture.';
+    case 'CAMERA_URI_REQUIRED':
+    case 'CAMERA_NOT_READY':
+    case 'CAPTURE_EMPTY':
+      return 'Camera capture failed. Please try again.';
+    case 'JPEG_NORMALIZE_NO_BASE64':
+    case 'IMAGE_SIZE_FAILED':
+      return 'Could not process the photo. Please retake.';
+    case 'OUTBOX_META_UNEXPECTED_KEY':
+    case 'OUTBOX_META_INVALID_CONTENT_TYPE':
+    case 'OUTBOX_META_INVALID_CAPTURE_SOURCE':
+    case 'OUTBOX_META_INVALID_PURPOSE':
+      return 'Could not save photo metadata. Please retake.';
+    case 'FILE_SYSTEM_UNAVAILABLE':
+      return 'Device storage unavailable. Please try again.';
+    default:
+      return 'Encrypt / outbox failed. Please retake the photo.';
+  }
 }
 
 function first(v: string | string[] | undefined): string | undefined {
@@ -290,4 +359,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#7f1d1d',
   },
   errorBarText: { color: '#fecaca', fontSize: 13, textAlign: 'center' },
+  preview: { flex: 1, width: '100%', backgroundColor: '#000' },
+  reviewActions: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+    backgroundColor: '#0f172a',
+  },
+  retakeBtn: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#64748b',
+  },
+  retakeText: { color: '#e2e8f0', fontWeight: '700', fontSize: 16 },
+  keepBtn: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    backgroundColor: '#0369a1',
+  },
+  keepText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });
