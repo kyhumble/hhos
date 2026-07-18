@@ -556,4 +556,150 @@ export class ConsentsService {
       grants,
     };
   }
+
+  /**
+   * Server-side purpose gate for a specific consent record (Phase 2 wound photos).
+   * Ordered checks (locked): caseload → load → revoked → not-signed → expired →
+   * patient/episode match → purpose on template.
+   */
+  async assertConsentPurpose(
+    user: AuthUser,
+    args: {
+      patientId: string;
+      consentRecordId: string;
+      purpose: PurposeCode;
+      episodeId?: string;
+    },
+  ): Promise<{ consentRecordId: string; templateId: string }> {
+    await this.assertPatientAccess(user, args.patientId);
+
+    const [record] = await this.db
+      .select({
+        id: consentRecords.id,
+        status: consentRecords.status,
+        patientId: consentRecords.patientId,
+        episodeId: consentRecords.episodeId,
+        templateId: consentRecords.templateId,
+        expiresAt: consentRecords.expiresAt,
+      })
+      .from(consentRecords)
+      .where(
+        and(
+          eq(consentRecords.id, args.consentRecordId),
+          eq(consentRecords.orgId, user.orgId),
+        ),
+      )
+      .limit(1);
+
+    if (!record) {
+      throw new NotFoundException({
+        error: { code: 'NOT_FOUND', message: 'Consent record not found' },
+      });
+    }
+
+    const purposes = await this.db
+      .select({ purposeCode: consentTemplatePurposes.purposeCode })
+      .from(consentTemplatePurposes)
+      .where(eq(consentTemplatePurposes.templateId, record.templateId));
+
+    return evaluateConsentPurposeRecord(
+      record,
+      args,
+      purposes.map((p) => p.purposeCode),
+    );
+  }
 }
+
+/** Shape loaded from DB for post-load consent purpose checks. */
+export type ConsentPurposeRecord = {
+  id: string;
+  status: string;
+  patientId: string;
+  episodeId: string | null;
+  templateId: string;
+  expiresAt: Date | null;
+};
+
+/**
+ * Ordered post-load checks for assertConsentPurpose (steps 3–8).
+ * Exported for unit tests without Nest DI / DB.
+ *
+ * Order (locked): revoked → not signed → expired → patient → episode → purpose.
+ */
+export function evaluateConsentPurposeRecord(
+  record: ConsentPurposeRecord,
+  args: {
+    patientId: string;
+    purpose: PurposeCode;
+    episodeId?: string;
+  },
+  templatePurposeCodes: string[],
+  now: Date = new Date(),
+): { consentRecordId: string; templateId: string } {
+  // 3. Revoked before generic not-signed
+  if (record.status === 'revoked') {
+    throw new ForbiddenException({
+      error: {
+        code: 'CONSENT_REVOKED',
+        message: 'Consent has been revoked',
+      },
+    });
+  }
+
+  // 4. Not signed (draft / void / other)
+  if (record.status !== 'signed') {
+    throw new ForbiddenException({
+      error: {
+        code: 'CONSENT_REQUIRED',
+        message: `Consent is not signed (status=${record.status})`,
+      },
+    });
+  }
+
+  // 5. Expired while still signed
+  if (record.expiresAt && record.expiresAt <= now) {
+    throw new ForbiddenException({
+      error: {
+        code: 'CONSENT_EXPIRED',
+        message: 'Consent has expired',
+      },
+    });
+  }
+
+  // 6. Patient bind
+  if (record.patientId !== args.patientId) {
+    throw new ForbiddenException({
+      error: {
+        code: 'CONSENT_MISMATCH',
+        message: 'Consent does not belong to this patient',
+      },
+    });
+  }
+
+  // 7. Optional episode: both set and differ → mismatch
+  if (
+    args.episodeId &&
+    record.episodeId &&
+    record.episodeId !== args.episodeId
+  ) {
+    throw new ForbiddenException({
+      error: {
+        code: 'CONSENT_MISMATCH',
+        message: 'Consent does not match this episode',
+      },
+    });
+  }
+
+  // 8. Purpose must be on template
+  if (!templatePurposeCodes.includes(args.purpose)) {
+    throw new ForbiddenException({
+      error: {
+        code: 'CONSENT_REQUIRED',
+        message: `Consent does not grant purpose ${args.purpose}`,
+      },
+    });
+  }
+
+  return { consentRecordId: record.id, templateId: record.templateId };
+}
+
