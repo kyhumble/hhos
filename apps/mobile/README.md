@@ -18,15 +18,25 @@ pnpm --filter @hhos/mobile exec expo run:ios
 pnpm --filter @hhos/mobile exec expo run:android
 ```
 
-Or an **EAS development build** / custom dev client. Camera + crypto land in later PRs; this shell already documents the workflow so CI and agents do not assume managed Expo Go.
+Or an **EAS development build** / custom dev client.
 
-### What still works without native crypto
+### Modules (Phase 2)
+
+| Area | Path | Notes |
+|------|------|--------|
+| Consent gate | `src/consent/` | Blocks `/capture` without `WOUND_PHOTO_CLINICAL` |
+| Camera | `src/camera/` | **`expo-camera` only** — no `expo-image-picker` / gallery |
+| JPEG normalize | `src/camera/normalize-jpeg.ts` | Max edge 2048, quality ~0.8, ≤ 12 MB |
+| AES-GCM | `src/crypto/aes-gcm.ts` | `react-native-quick-crypto`; framing matches `PHOTO_CRYPTO_VECTORS` |
+| Outbox | `src/outbox/` | sqlite metadata + FS ciphertext; DEK in Secure Store |
+
+### What works without a dev client
 
 - Dev login → JWT in **expo-secure-store** (`hhos.accessToken`)
 - Caseload **episodes** list (`GET /v1/episodes`) when token present
 - **Consent purpose cache** + hard block on `/capture` without `WOUND_PHOTO_CLINICAL`
 
-`expo-secure-store` works in Expo Go, but do not rely on Expo Go for Phase 2 field photo workflows.
+Camera, encrypt, and outbox require prebuild. `expo-secure-store` works in Expo Go, but do not rely on Expo Go for Phase 2 field photo workflows.
 
 ## Secure Store key layout (locked)
 
@@ -35,8 +45,10 @@ Or an **EAS development build** / custom dev client. Camera + crypto land in lat
 | `hhos.accessToken` | JWT |
 | `hhos.deviceId` | App install UUID (later PR) |
 | `hhos.consent-grant.{patientId}` | Clinical purpose grant cache (IDs only) |
-| `hhos.photo-dek.{clientPhotoId}` | Per-photo DEK (PR 9+) |
+| `hhos.photo-dek.{clientPhotoId}` | Per-photo DEK (base64) until sync wipe |
 | `hhos.annot-dek.{clientAnnotationId}` | Annotation DEK (later) |
+
+**Outbox layout:** `photo_outbox` rows in `expo-sqlite` (IDs/status/hashes only — no DEKs, names, or geo). Ciphertext files under app document dir `photo-cipher/{clientPhotoId}.bin`. Concurrent pending photos use **distinct** Secure Store keys.
 
 Never log token or DEK values. Consent cache TTL: **7 days**.
 
@@ -61,9 +73,11 @@ Never log token or DEK values. Consent cache TTL: **7 days**.
 |---------|-------------|
 | `pnpm --filter @hhos/mobile dev` | Expo start (shell / secure store only in Expo Go) |
 | `pnpm --filter @hhos/mobile typecheck` | TypeScript check |
+| `pnpm --filter @hhos/mobile test` | Gate classifiers + AES-GCM vector tests vs shared fixtures |
 
 ## Hard rules
 
-- No gallery import for clinical wound photos.
+- No gallery import for clinical wound photos (`expo-image-picker` is not a dependency).
 - No capture without active / cached `WOUND_PHOTO_CLINICAL`.
+- Encrypt before outbox enqueue completes; DEK never in sqlite.
 - No PHI in logs.
