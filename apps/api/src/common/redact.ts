@@ -1,19 +1,35 @@
+/**
+ * Normalized sensitive key names (lowercase, alphanumeric only).
+ * Matching uses `normalizeRedactKey` so `dekBase64`, `dek_base64`, `dek-base64` all hit.
+ */
 const SENSITIVE_KEYS = new Set([
   'ssn',
   'encryptedssn',
-  'encrypted_ssn',
   'memberid',
-  'member_id',
   'memberidencrypted',
-  'member_id_encrypted',
-  'databse64',
-  'data_base64',
+  // was typo `databse64` — normalized form of dataBase64 / data_base64
+  'database64',
   'signatureblobkey',
-  'signature_blob_key',
   'password',
   'token',
   'authorization',
+  // Phase 2 wound-photo / crypto / geo (never persist in audit JSON)
+  'dek',
+  'dekbase64',
+  'wrappeddek',
+  'plaintext',
+  'cipherbytes',
+  'geolat',
+  'geolng',
+  'geo',
+  'lat',
+  'lng',
 ]);
+
+/** Normalize object keys for sensitive-key matching (case/underscore/hyphen insensitive). */
+export function normalizeRedactKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
 
 /** Deep-redact sensitive keys for audit before/after payloads. */
 export function redactForAudit(value: unknown): unknown {
@@ -24,7 +40,7 @@ export function redactForAudit(value: unknown): unknown {
     if (Buffer.isBuffer(value)) return '[REDACTED_BUFFER]';
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      const norm = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const norm = normalizeRedactKey(k);
       if (SENSITIVE_KEYS.has(norm) || norm.includes('encrypted') || norm.includes('ssn')) {
         out[k] = '[REDACTED]';
       } else {

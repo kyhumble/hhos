@@ -20,6 +20,8 @@ export type AuditWriteInput = {
   requestId?: string | null;
   ip?: string | null;
   userAgent?: string | null;
+  /** Client device id for mobile / field capture audit trails. */
+  deviceId?: string | null;
 };
 
 /** DB or transaction handle (same insert surface). */
@@ -46,6 +48,7 @@ export class AuditService {
       requestId: input.requestId ?? null,
       ip: input.ip ?? null,
       userAgent: input.userAgent ?? null,
+      deviceId: input.deviceId ?? null,
     });
   }
 
@@ -89,6 +92,9 @@ export class AuditService {
         episodeId: auditEvents.episodeId,
         reason: auditEvents.reason,
         requestId: auditEvents.requestId,
+        ip: auditEvents.ip,
+        userAgent: auditEvents.userAgent,
+        deviceId: auditEvents.deviceId,
         before: auditEvents.before,
         after: auditEvents.after,
       })
