@@ -9,7 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"no lint configured\"",
     "test": "node --test src/api/client.gate.test.mjs",
-    "build": "echo \"mobile build via EAS / prebuild — Expo Go unsupported for Phase 2 crypto\""
+    "build": "echo \"mobile build via EAS / prebuild \u2014 Expo Go unsupported for Phase 2 crypto\""
   },
   "dependencies": {
     "@hhos/shared": "workspace:*",
@@ -23,7 +23,8 @@
     "react-native-screens": "~4.4.0"
   },
   "devDependencies": {
-    "@types/react": "~18.3.12",
+    "@types/react": "18.3.18",
     "typescript": "^5.7.2"
-  }
+  },
+  "pnpm": {}
 }
