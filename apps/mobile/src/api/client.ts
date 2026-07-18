@@ -19,6 +19,8 @@ type RequestOptions = {
   token?: string | null;
   /** Skip Authorization header (e.g. dev-login). */
   skipAuth?: boolean;
+  /** Extra headers (e.g. Idempotency-Key). Never put secrets/PHI here for logging. */
+  headers?: Record<string, string>;
 };
 
 /**
@@ -62,8 +64,9 @@ export async function apiRequest<T>(
 
   const headers: Record<string, string> = {
     Accept: 'application/json',
+    ...(opts.headers ?? {}),
   };
-  if (opts.body !== undefined) {
+  if (opts.body !== undefined && headers['Content-Type'] === undefined) {
     headers['Content-Type'] = 'application/json';
   }
   if (token) {

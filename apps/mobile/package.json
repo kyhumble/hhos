@@ -8,7 +8,7 @@
     "prebuild": "expo prebuild",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"no lint configured\"",
-    "test": "node --test src/api/client.gate.test.mjs src/crypto/aes-gcm.vectors.test.mjs src/crypto/secure-keys.photo-dek.test.mjs src/camera/camera-uri.test.mjs",
+    "test": "node --test src/api/client.gate.test.mjs src/crypto/aes-gcm.vectors.test.mjs src/crypto/secure-keys.photo-dek.test.mjs src/camera/camera-uri.test.mjs src/outbox/backoff.test.mjs src/outbox/sync-gate.test.mjs",
     "build": "echo \"mobile build via EAS / prebuild — Expo Go unsupported for Phase 2 crypto\""
   },
   "dependencies": {

@@ -2,7 +2,9 @@ import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { logout } from '../src/api/auth';
+import { requestSync } from '../src/outbox/syncWorker';
 import { getAccessToken } from '../src/secure/token-store';
+import { SyncBadge } from '../src/sync/SyncBadge';
 
 /**
  * Field home shell.
@@ -17,7 +19,10 @@ export default function HomeScreen() {
     useCallback(() => {
       let active = true;
       void getAccessToken().then((t) => {
-        if (active) setSignedIn(!!t);
+        if (active) {
+          setSignedIn(!!t);
+          if (t) requestSync('home-focus');
+        }
       });
       return () => {
         active = false;
@@ -56,6 +61,8 @@ export default function HomeScreen() {
           </Pressable>
         )}
       </View>
+
+      {signedIn ? <SyncBadge /> : null}
 
       <Link href="/episodes" style={styles.link}>
         View assigned episodes

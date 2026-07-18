@@ -29,6 +29,8 @@ Or an **EAS development build** / custom dev client.
 | JPEG normalize | `src/camera/normalize-jpeg.ts` | Max edge 2048, quality ~0.8, ≤ 12 MB |
 | AES-GCM | `src/crypto/aes-gcm.ts` | `react-native-quick-crypto`; framing matches `PHOTO_CRYPTO_VECTORS` |
 | Outbox | `src/outbox/` | sqlite metadata + FS ciphertext; DEK in Secure Store |
+| Sync worker | `src/outbox/syncWorker.ts` | Device register gate → initiate → wrap → PUT → complete → wipe |
+| Device register | `src/device/` | `POST /v1/devices/register` before any photo upload |
 
 ### What works without a dev client
 
@@ -43,12 +45,20 @@ Camera, encrypt, and outbox require prebuild. `expo-secure-store` works in Expo 
 | Key | Contents |
 |-----|----------|
 | `hhos.accessToken` | JWT |
-| `hhos.deviceId` | App install UUID (later PR) |
+| `hhos.deviceId` | App install UUID (register + initiate) |
 | `hhos.consent-grant.{patientId}` | Clinical purpose grant cache (IDs only) |
 | `hhos.photo-dek.{clientPhotoId}` | Per-photo DEK (base64) until sync wipe |
 | `hhos.annot-dek.{clientAnnotationId}` | Annotation DEK (later) |
 
 **Outbox layout:** `photo_outbox` rows in `expo-sqlite` (IDs/status/hashes only — no DEKs, names, or geo). Ciphertext files under app document dir `photo-cipher/{clientPhotoId}.bin`. Concurrent pending photos use **distinct** Secure Store keys.
+
+### Sync worker (PR 10)
+
+1. **Register first:** `POST /v1/devices/register` must return 200 before any `wound-photos/uploads` initiate.
+2. **State machine:** `pending_wrap` → initiate + wrap-dek → `pending_upload` → PUT presigned URL **as returned** (no host rewrite) → `pending_complete` → complete → wipe `hhos.photo-dek.*` + cipher file → `synced`.
+3. **Backoff:** `min(15m, 2^attempt * 5s) + jitter`; max 20 attempts or 72h → dead-letter (secrets purged).
+4. **DEVICE_NOT_REGISTERED:** re-register before resume; **DEVICE_REVOKED:** wipe local DEKs + cipher files and freeze queue.
+5. **Triggers:** app foreground, ~30s periodic while active, after enqueue, home focus. Sync badge on home (counts/codes only — no PHI).
 
 Never log token or DEK values. Consent cache TTL: **7 days**.
 

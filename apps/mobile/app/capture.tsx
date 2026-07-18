@@ -15,6 +15,7 @@ import {
   type CaptureAndEnqueueResult,
 } from '../src/camera/capture-and-enqueue';
 import { requireWoundPhotoClinical } from '../src/consent/require-wound-photo-clinical';
+import { requestSync } from '../src/outbox/syncWorker';
 import type { ConsentGrantCache } from '../src/secure/consent-cache';
 
 /**
@@ -115,6 +116,8 @@ export default function CaptureScreen() {
       });
       setPendingUri(null);
       setResult(enqueued);
+      // Kick sync worker (register gate inside worker; no initiate until register 200)
+      requestSync('after-enqueue');
     } catch (e) {
       const code = e instanceof Error ? e.message : 'ENCRYPT_OUTBOX_FAILED';
       setCaptureError(mapCaptureError(code));

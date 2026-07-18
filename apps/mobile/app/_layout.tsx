@@ -1,7 +1,20 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
+import {
+  startSyncWorker,
+  stopSyncWorker,
+} from '../src/outbox/syncWorker';
 
 export default function RootLayout() {
+  useEffect(() => {
+    // Foreground + periodic outbox drain (register gate inside worker).
+    startSyncWorker();
+    return () => {
+      stopSyncWorker();
+    };
+  }, []);
+
   return (
     <>
       <StatusBar style="dark" />
