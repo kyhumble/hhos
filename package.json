@@ -1,0 +1,26 @@
+{
+  "name": "hhos",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Home Health Operating System — HIPAA-by-design custom platform for mobile wound care",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:generate": "pnpm --filter @hhos/db generate",
+    "db:migrate": "pnpm --filter @hhos/db migrate",
+    "db:seed": "pnpm --filter @hhos/db seed",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  }
+}

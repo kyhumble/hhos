@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "HHOS Field",
+    "slug": "hhos-field",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "hhos",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.hhos.field"
+    },
+    "android": {
+      "package": "com.hhos.field"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "apiUrl": "http://localhost:3001"
+    }
+  }
+}
