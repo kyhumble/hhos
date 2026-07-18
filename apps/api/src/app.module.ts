@@ -7,6 +7,9 @@ import { EpisodesModule } from './episodes/episodes.module';
 import { ConsentsModule } from './consents/consents.module';
 import { DocumentsModule } from './documents/documents.module';
 import { AuditModule } from './audit/audit.module';
+import { WoundsModule } from './wounds/wounds.module';
+import { VisitsModule } from './visits/visits.module';
+import { DevicesModule } from './devices/devices.module';
 import { DbModule } from './common/db.module';
 import { CommonDomainModule } from './common/common.module';
 
@@ -22,6 +25,9 @@ import { CommonDomainModule } from './common/common.module';
     EpisodesModule,
     ConsentsModule,
     DocumentsModule,
+    WoundsModule,
+    VisitsModule,
+    DevicesModule,
   ],
 })
 export class AppModule {}
