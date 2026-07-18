@@ -5,3 +5,5 @@ export * from './referrals';
 export * from './episodes';
 export * from './consents';
 export * from './audit';
+export * from './wounds';
+export * from './devices';

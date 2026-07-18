@@ -13,6 +13,7 @@ import {
   consentTemplatePurposes,
   consentTemplates,
   coverages,
+  devices,
   episodes,
   intakeChecklistItems,
   organizations,
@@ -26,6 +27,8 @@ import {
   roles,
   userRoles,
   users,
+  visits,
+  wounds,
 } from '../schema/index';
 
 const ORG_ID = '00000000-0000-4000-8000-000000000001';
@@ -40,6 +43,12 @@ const PATIENT_CARA = '00000000-0000-4000-8000-000000000023';
 
 const REFERRAL_A = '00000000-0000-4000-8000-000000000031';
 const EPISODE_A = '00000000-0000-4000-8000-000000000041';
+
+const WOUND_A = '00000000-0000-4000-8000-000000000081';
+const VISIT_A = '00000000-0000-4000-8000-000000000082';
+const DEVICE_ROW_A = '00000000-0000-4000-8000-000000000091';
+/** Synthetic app-generated device id (not a real install). */
+const DEVICE_ID_A = 'demo-device-00000000-0000-4000-8000-000000000092';
 
 function sha256(text: string): string {
   return createHash('sha256').update(text, 'utf8').digest('hex');
@@ -70,6 +79,11 @@ async function main() {
         photoGeotagEnabled: false,
         coverageVerifiedRequired: false,
         woundPathwayDefault: true,
+        largeWoundLengthCm: 10,
+        largeWoundWidthCm: 10,
+        largeWoundAreaCm2: 50,
+        photoMaxBytes: 12_000_000,
+        photoPendingTtlHours: 24,
       },
     })
     .onConflictDoNothing();
@@ -633,7 +647,56 @@ async function main() {
     });
   }
 
-  console.log('[hhos/db] Seed complete (synthetic only).');
+  // Phase 2: synthetic device + wound (no photo imagery / ciphertext)
+  await db
+    .insert(devices)
+    .values({
+      id: DEVICE_ROW_A,
+      orgId: ORG_ID,
+      userId: RN_ID,
+      deviceId: DEVICE_ID_A,
+      platform: 'ios',
+      model: 'Demo iPhone',
+      osVersion: 'iOS 18.0',
+      appVersion: '0.1.0-demo',
+      status: 'active',
+      lastSeenAt: new Date(),
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(wounds)
+    .values({
+      id: WOUND_A,
+      orgId: ORG_ID,
+      patientId: PATIENT_ALICE,
+      episodeId: EPISODE_A,
+      label: 'Left lower leg — synthetic demo wound',
+      bodySiteCode: 'LLL',
+      laterality: 'left',
+      woundType: 'venous_ulcer',
+      openedAt: receivedAt,
+      status: 'active',
+      createdBy: RN_ID,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(visits)
+    .values({
+      id: VISIT_A,
+      orgId: ORG_ID,
+      patientId: PATIENT_ALICE,
+      episodeId: EPISODE_A,
+      clinicianUserId: RN_ID,
+      startedAt: receivedAt,
+      visitType: 'soc',
+      status: 'in_progress',
+      clientVisitId: 'demo-visit-alice-soc-001',
+    })
+    .onConflictDoNothing();
+
+  console.log('[hhos/db] Seed complete (synthetic only; no wound photo imagery).');
   console.log('[hhos/db] Demo users: coord@demo.local, rn@demo.local, lead@demo.local, compliance@demo.local');
   process.exit(0);
 }
