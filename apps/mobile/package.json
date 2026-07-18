@@ -5,15 +5,17 @@
   "main": "expo-router/entry",
   "scripts": {
     "dev": "expo start",
+    "prebuild": "expo prebuild",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"no lint configured\"",
     "test": "echo \"no tests yet\"",
-    "build": "echo \"mobile build via EAS in later phase\""
+    "build": "echo \"mobile build via EAS / prebuild — Expo Go unsupported for Phase 2 crypto\""
   },
   "dependencies": {
     "@hhos/shared": "workspace:*",
     "expo": "~52.0.23",
     "expo-router": "~4.0.15",
+    "expo-secure-store": "~14.0.1",
     "expo-status-bar": "~2.0.1",
     "react": "18.3.1",
     "react-native": "0.76.5",
