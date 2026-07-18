@@ -105,4 +105,20 @@ describe('PhotoEnvelopeCrypto', () => {
     assert.equal(svc.isConfigured(), false);
     assert.throws(() => svc.wrapDek(Buffer.alloc(32, 0)));
   });
+
+  it('rejects invalid PHOTO_KEK formats (no hash derivation)', () => {
+    process.env.PHOTO_KEK = 'not-a-valid-key';
+    const svc = makeService();
+    assert.equal(svc.isConfigured(), false);
+    assert.throws(() => svc.wrapDek(Buffer.alloc(32, 0)));
+  });
+
+  it('accepts 32-byte base64 PHOTO_KEK', () => {
+    process.env.PHOTO_KEK = Buffer.from(TEST_KEK_HEX, 'hex').toString('base64');
+    const svc = makeService();
+    assert.equal(svc.isConfigured(), true);
+    const dek = Buffer.alloc(32, 9);
+    const { wrappedDek } = svc.wrapDek(dek);
+    assert.deepEqual(svc.unwrapDek(wrappedDek), dek);
+  });
 });

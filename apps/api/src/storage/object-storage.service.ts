@@ -21,12 +21,19 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { Readable } from 'node:stream';
+import { featureEnabled } from '../common/features';
 
 const DEFAULT_PRESIGN_TTL_SECONDS = 10 * 60; // 10 minutes (within 5–15m design range)
+const MIN_PRESIGN_TTL_SECONDS = 60;
+const MAX_PRESIGN_TTL_SECONDS = 15 * 60;
 
 export interface PresignPutResult {
   /** Fully signed URL — return as-is; do not mutate host. */
   url: string;
+  /**
+   * Advisory wall-clock expiry for mobile UI countdown only.
+   * AWS SigV4 expiry is authoritative; this may skew by a few seconds.
+   */
   expiresAt: Date;
   key: string;
   bucket: string;
@@ -38,17 +45,11 @@ export interface HeadObjectResult {
   contentType: string | undefined;
 }
 
-function envBool(name: string, defaultValue: boolean): boolean {
-  const v = process.env[name];
-  if (v === undefined || v === '') return defaultValue;
-  return v === '1' || v.toLowerCase() === 'true' || v.toLowerCase() === 'yes';
-}
-
 function buildClientConfig(endpoint: string): S3ClientConfig {
   const region = process.env.S3_REGION ?? 'us-east-1';
   const accessKeyId = process.env.S3_ACCESS_KEY_ID;
   const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
-  const forcePathStyle = envBool('S3_FORCE_PATH_STYLE', true);
+  const forcePathStyle = featureEnabled('S3_FORCE_PATH_STYLE', true);
 
   const config: S3ClientConfig = {
     region,
@@ -66,7 +67,9 @@ function buildClientConfig(endpoint: string): S3ClientConfig {
 @Injectable()
 export class ObjectStorageService implements OnModuleInit {
   private readonly logger = new Logger(ObjectStorageService.name);
+  /** Ops only: GET/HEAD/DELETE (internal endpoint). */
   private internalClient!: S3Client;
+  /** Presign PUT only (public endpoint). Never use for ops. */
   private presignClient!: S3Client;
   private bucket = '';
   private ready = false;
@@ -89,10 +92,18 @@ export class ObjectStorageService implements OnModuleInit {
     this.bucket = process.env.S3_BUCKET?.trim() || 'hhos-documents';
 
     const ttlRaw = process.env.S3_PRESIGN_TTL_SECONDS;
-    if (ttlRaw) {
+    if (ttlRaw !== undefined && ttlRaw !== '') {
       const n = Number.parseInt(ttlRaw, 10);
-      if (Number.isFinite(n) && n >= 60 && n <= 15 * 60) {
+      if (
+        Number.isFinite(n) &&
+        n >= MIN_PRESIGN_TTL_SECONDS &&
+        n <= MAX_PRESIGN_TTL_SECONDS
+      ) {
         this.presignTtlSeconds = n;
+      } else {
+        this.logger.warn(
+          `S3_PRESIGN_TTL_SECONDS="${ttlRaw}" invalid or out of range [${MIN_PRESIGN_TTL_SECONDS}, ${MAX_PRESIGN_TTL_SECONDS}]; using default ${DEFAULT_PRESIGN_TTL_SECONDS}s`,
+        );
       }
     }
 
@@ -116,6 +127,14 @@ export class ObjectStorageService implements OnModuleInit {
   /** Exposed for tests / diagnostics only — not for URL rewriting. */
   getEndpoints(): { internal: string; public: string } {
     return { internal: this.internalEndpoint, public: this.publicEndpoint };
+  }
+
+  /**
+   * Test hook: which client endpoint ops use.
+   * Confirms K25 split without rewriting any signed URL.
+   */
+  getOpsClientEndpointForTests(): string {
+    return this.internalEndpoint;
   }
 
   private requireReady(): void {
@@ -154,6 +173,7 @@ export class ObjectStorageService implements OnModuleInit {
     // Sign with public endpoint client so SigV4 Host matches the device-reachable URL
     const url = await getSignedUrl(this.presignClient, command, { expiresIn });
     // K25: return URL as-is — do not rewrite host/path after signing
+    // expiresAt is advisory wall-clock for UI only (not SigV4 truth)
     const expiresAt = new Date(Date.now() + expiresIn * 1000);
 
     return { url, expiresAt, key, bucket: this.bucket };

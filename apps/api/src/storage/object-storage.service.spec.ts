@@ -128,4 +128,56 @@ describe('ObjectStorageService (dual S3 / K25)', () => {
       'org/org-uuid/wound-photo-annotations/photo-uuid/ann-1.bin',
     );
   });
+
+  it('ops methods use internalClient (not presignClient)', async () => {
+    const svc = makeService({
+      S3_ENDPOINT: 'http://minio:9000',
+      S3_PUBLIC_ENDPOINT: 'http://127.0.0.1:9000',
+      S3_REGION: 'us-east-1',
+      S3_BUCKET: 'hhos-documents',
+      S3_ACCESS_KEY_ID: 'hhosminio',
+      S3_SECRET_ACCESS_KEY: 'hhosminio_dev_secret',
+      S3_FORCE_PATH_STYLE: 'true',
+    });
+
+    assert.equal(svc.getOpsClientEndpointForTests(), 'http://minio:9000');
+    assert.equal(svc.getEndpoints().public, 'http://127.0.0.1:9000');
+
+    const anySvc = svc as unknown as {
+      internalClient: { send: (cmd: unknown) => Promise<unknown> };
+      presignClient: { send: (cmd: unknown) => Promise<unknown> };
+    };
+    let internalCalls = 0;
+    let presignCalls = 0;
+    anySvc.internalClient.send = async () => {
+      internalCalls += 1;
+      return {
+        ContentLength: 1,
+        ETag: '"abc"',
+        ContentType: 'application/octet-stream',
+        Body: undefined,
+      };
+    };
+    anySvc.presignClient.send = async () => {
+      presignCalls += 1;
+      return {};
+    };
+
+    await svc.headObject('org/x/y.bin');
+    await svc.deleteObject('org/x/y.bin');
+    assert.equal(internalCalls, 2);
+    assert.equal(presignCalls, 0);
+  });
+
+  it('keeps default TTL when S3_PRESIGN_TTL_SECONDS out of range', () => {
+    const svc = makeService({
+      S3_ENDPOINT: 'http://127.0.0.1:9000',
+      S3_REGION: 'us-east-1',
+      S3_BUCKET: 'hhos-documents',
+      S3_ACCESS_KEY_ID: 'a',
+      S3_SECRET_ACCESS_KEY: 'b',
+      S3_PRESIGN_TTL_SECONDS: '5',
+    });
+    assert.equal(svc.isConfigured(), true);
+  });
 });

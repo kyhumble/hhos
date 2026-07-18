@@ -54,16 +54,28 @@ services:
     container_name: hhos-minio-init
     depends_on:
       - minio
-    entrypoint: >
-      /bin/sh -c "
-      sleep 3;
-      mc alias set local http://minio:9000 hhosminio hhosminio_dev_secret;
-      mc mb -p local/hhos-documents || true;
-      mc anonymous set none local/hhos-documents;
-      printf '%s' '{\"CORSRules\":[{\"AllowedOrigins\":[\"*\"],\"AllowedMethods\":[\"GET\",\"PUT\",\"HEAD\"],\"AllowedHeaders\":[\"*\"],\"ExposeHeaders\":[\"ETag\"],\"MaxAgeSeconds\":3000}]}' > /tmp/cors.json;
-      mc cors set local/hhos-documents /tmp/cors.json || true;
-      exit 0;
-      "
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        sleep 3
+        mc alias set local http://minio:9000 hhosminio hhosminio_dev_secret
+        mc mb -p local/hhos-documents || true
+        mc anonymous set none local/hhos-documents
+        # Valid JSON via quoted heredoc (never escape \" inside single-quoted printf)
+        cat > /tmp/cors.json <<'CORS_EOF'
+        {
+          "CORSRules": [{
+            "AllowedOrigins": ["*"],
+            "AllowedMethods": ["GET", "PUT", "HEAD"],
+            "AllowedHeaders": ["*"],
+            "ExposeHeaders": ["ETag"],
+            "MaxAgeSeconds": 3000
+          }]
+        }
+        CORS_EOF
+        # Fail init if CORS cannot be applied (do not swallow with || true)
+        mc cors set local/hhos-documents /tmp/cors.json
 
 volumes:
   hhos_pg_data:

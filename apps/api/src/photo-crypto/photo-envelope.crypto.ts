@@ -2,6 +2,9 @@
  * PHOTO_KEK envelope: wrap/unwrap per-object DEKs (K3, K4, K19).
  * Framing matches field-crypto / shared PHOTO_CRYPTO_VECTORS (iv||tag||ciphertext).
  * Separate key material from FIELD_ENCRYPTION_KEY.
+ *
+ * PHOTO_KEK must be exactly 64 hex chars or standard base64 of 32 bytes.
+ * Invalid formats are rejected (no SHA-256 derivation fallback).
  */
 import {
   Injectable,
@@ -9,7 +12,7 @@ import {
   OnModuleInit,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import {
   AES_256_KEY_LEN,
   aesGcmDecrypt,
@@ -19,21 +22,31 @@ import {
 /** Local single-deployment KEK id until KMS multi-key rotation lands. */
 export const LOCAL_PHOTO_KEK_ID = 'local/v1';
 
-function resolvePhotoKek(): Buffer | null {
-  const raw = process.env.PHOTO_KEK;
-  if (!raw || raw.length === 0) return null;
+/**
+ * Parse PHOTO_KEK strictly: 64 hex chars or 32-byte base64 only.
+ * Returns null when unset/empty or when format is invalid (fail-closed).
+ */
+export function resolvePhotoKek(
+  raw: string | undefined = process.env.PHOTO_KEK,
+): { key: Buffer } | { error: 'missing' | 'invalid' } {
+  if (raw === undefined || raw.length === 0) {
+    return { error: 'missing' };
+  }
 
   if (/^[0-9a-fA-F]{64}$/.test(raw)) {
-    return Buffer.from(raw, 'hex');
+    return { key: Buffer.from(raw, 'hex') };
   }
+
   try {
     const b = Buffer.from(raw, 'base64');
-    if (b.length === AES_256_KEY_LEN) return b;
+    if (b.length === AES_256_KEY_LEN) {
+      return { key: b };
+    }
   } catch {
-    // fall through
+    // fall through to invalid
   }
-  // Dev convenience only — never use arbitrary strings in prod
-  return createHash('sha256').update(raw, 'utf8').digest();
+
+  return { error: 'invalid' };
 }
 
 export interface WrapDekResult {
@@ -50,15 +63,25 @@ export class PhotoEnvelopeCrypto implements OnModuleInit {
   private kekKeyId: string = LOCAL_PHOTO_KEK_ID;
 
   onModuleInit(): void {
-    this.kek = resolvePhotoKek();
-    const configuredId = process.env.PHOTO_KEK_ID?.trim();
-    if (configuredId) this.kekKeyId = configuredId;
-
-    if (!this.kek) {
+    const resolved = resolvePhotoKek();
+    if ('key' in resolved) {
+      this.kek = resolved.key;
+    } else if (resolved.error === 'invalid') {
+      this.kek = null;
+      this.logger.error(
+        'PHOTO_KEK is set but invalid — must be 64 hex chars or 32-byte base64 (no derivation). Wrap/unwrap disabled.',
+      );
+    } else {
+      this.kek = null;
       this.logger.warn(
         'PHOTO_KEK not configured — wrap/unwrap will fail until set',
       );
-    } else {
+    }
+
+    const configuredId = process.env.PHOTO_KEK_ID?.trim();
+    if (configuredId) this.kekKeyId = configuredId;
+
+    if (this.kek) {
       this.logger.log(`Photo envelope crypto ready (kekKeyId=${this.kekKeyId})`);
     }
   }

@@ -2,6 +2,10 @@
  * Feature-flag helpers (K12).
  * Env values accepted as true: "1", "true", "yes" (case-insensitive).
  * Missing / empty → defaultValue (FEATURE_WOUND_PHOTOS defaults false).
+ *
+ * Reserved flags in `.env.example` without dedicated helpers yet (use featureEnabled):
+ *   FEATURE_PHOTO_ANNOTATIONS, FEATURE_LARGE_WOUND_TASKS, FEATURE_PHOTO_BYTES_VIA_API
+ * Thin helpers land with the routes that consume them (PR 5b+).
  */
 
 export function featureEnabled(name: string, defaultValue = false): boolean {
