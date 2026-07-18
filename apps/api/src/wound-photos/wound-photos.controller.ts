@@ -1,10 +1,14 @@
 import {
   Body,
   Controller,
+  Delete,
+  Get,
+  Header,
   Headers,
   Param,
   Post,
   Req,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
@@ -105,5 +109,90 @@ export class WoundPhotosController {
     },
   ) {
     return this.photos.abandon(user, id, requestMeta(req));
+  }
+
+  // ─── PR 6: list / detail / content / soft-delete ──────────────────────────
+
+  /**
+   * Metadata list for episode photos (caseload scoped). No image bytes (K22).
+   */
+  @Get('episodes/:episodeId/wound-photos')
+  @RequirePermissions(Permission.WOUND_PHOTO_READ)
+  listForEpisode(
+    @CurrentUser() user: AuthUser,
+    @Param('episodeId') episodeId: string,
+  ) {
+    return this.photos.listForEpisode(user, episodeId);
+  }
+
+  /**
+   * Metadata list for wound photos (caseload scoped). No image bytes (K22).
+   */
+  @Get('wounds/:woundId/photos')
+  @RequirePermissions(Permission.WOUND_PHOTO_READ)
+  listForWound(
+    @CurrentUser() user: AuthUser,
+    @Param('woundId') woundId: string,
+  ) {
+    return this.photos.listForWound(user, woundId);
+  }
+
+  /**
+   * Metadata detail (geo role-filtered). Requires wound_photo:read (not document:read).
+   */
+  @Get('wound-photos/:id')
+  @RequirePermissions(Permission.WOUND_PHOTO_READ)
+  getDetail(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.photos.getDetail(user, id);
+  }
+
+  /**
+   * Canonical decrypt-proxy stream only — no view-url endpoint (K22).
+   * Clinical path re-asserts WOUND_PHOTO_CLINICAL (K28).
+   * Compliance break-glass: X-Break-Glass-Reason + break_glass:phi (K16).
+   */
+  @Get('wound-photos/:id/content')
+  @RequirePermissions(Permission.WOUND_PHOTO_READ)
+  @Header('Cache-Control', 'private, no-store')
+  @ApiHeader({
+    name: 'X-Break-Glass-Reason',
+    required: false,
+    description: 'Required for compliance break-glass view (skip purpose assert)',
+  })
+  async getContent(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Headers('x-break-glass-reason') breakGlassReason: string | undefined,
+    @Req()
+    req: {
+      headers?: Record<string, string | string[] | undefined>;
+      ip?: string;
+    },
+  ): Promise<StreamableFile> {
+    const { stream, contentType } = await this.photos.getContent(user, id, {
+      ...requestMeta(req),
+      breakGlassReason,
+    });
+    return new StreamableFile(stream, {
+      type: contentType,
+      disposition: 'inline',
+    });
+  }
+
+  /**
+   * Soft-delete available photo. field_rn lacks wound_photo:delete.
+   */
+  @Delete('wound-photos/:id')
+  @RequirePermissions(Permission.WOUND_PHOTO_DELETE)
+  softDelete(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Req()
+    req: {
+      headers?: Record<string, string | string[] | undefined>;
+      ip?: string;
+    },
+  ) {
+    return this.photos.softDelete(user, id, requestMeta(req));
   }
 }

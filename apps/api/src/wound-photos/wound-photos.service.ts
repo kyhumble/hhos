@@ -1,6 +1,7 @@
 /**
- * Wound photo upload control plane (PR 5b).
- * Initiate → wrap-dek → complete (full ciphertext SHA-256) → abandon.
+ * Wound photo control plane (PR 5b + PR 6).
+ * Upload: initiate → wrap-dek → complete → abandon.
+ * Read: list/detail metadata, GET .../content decrypt proxy, soft-delete, break-glass (K16/K22/K28).
  * K29: sets is_large_wound + measurements only — never inserts clinical_tasks.
  */
 import {
@@ -17,7 +18,8 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import type { Readable } from 'node:stream';
+import { and, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
 import {
   episodes,
   organizations,
@@ -31,6 +33,7 @@ import type {
   InitiateWoundPhotoUploadInput,
   WrapDekInput,
 } from '@hhos/shared';
+import { Permission } from '@hhos/shared';
 import { DB } from '../common/db.module';
 import {
   fieldRnCanAccessEpisode,
@@ -47,8 +50,17 @@ import { DevicesService } from '../devices/devices.service';
 import { PhotoEnvelopeCrypto } from '../photo-crypto/photo-envelope.crypto';
 import { ObjectStorageService } from '../storage/object-storage.service';
 import type { AuthUser } from '../common/auth.types';
+import { createAesGcmDecryptStream } from './aes-gcm-decrypt-stream';
+import {
+  releaseDecryptSlot,
+  tryAcquireDecryptSlot,
+} from './decrypt-limit';
 import { computeIsLargeWound, parseNumericCm } from './large-wound';
 import { safePhotoAudit } from './photo-audit';
+import {
+  canUseClinicalContentPath,
+  toPhotoMetadata,
+} from './photo-metadata';
 import { allowWrapDek } from './wrap-rate-limit';
 
 export type WoundPhotoRow = typeof woundPhotos.$inferSelect;
@@ -638,6 +650,377 @@ export class WoundPhotosService {
 
     await this.audit.writeFromUser(user, {
       action: 'wound_photo.abandon',
+      resourceType: 'wound_photo',
+      resourceId: updated.id,
+      patientId: updated.patientId,
+      episodeId: updated.episodeId,
+      before: safePhotoAudit(photo),
+      after: safePhotoAudit(updated),
+      requestId: meta?.requestId,
+      ip: meta?.ip,
+      userAgent: meta?.userAgent,
+      deviceId: updated.deviceId,
+    });
+
+    return {
+      id: updated.id,
+      clientPhotoId: updated.clientPhotoId,
+      status: updated.status,
+    };
+  }
+
+
+  // ─── List / detail (metadata only — K22) ──────────────────────────────────
+
+  /**
+   * GET /v1/episodes/:episodeId/wound-photos
+   * Caseload-scoped metadata list (no image bytes).
+   */
+  async listForEpisode(user: AuthUser, episodeId: string) {
+    this.assertFeatureEnabled();
+    await this.assertEpisodeAccess(user, episodeId);
+
+    const rows = await this.db
+      .select()
+      .from(woundPhotos)
+      .where(
+        and(
+          eq(woundPhotos.orgId, user.orgId),
+          eq(woundPhotos.episodeId, episodeId),
+          ne(woundPhotos.status, 'soft_deleted'),
+          isNull(woundPhotos.deletedAt),
+        ),
+      )
+      .orderBy(desc(woundPhotos.capturedAt))
+      .limit(200);
+
+    return { data: rows.map((r) => toPhotoMetadata(r, user)) };
+  }
+
+  /**
+   * GET /v1/wounds/:woundId/photos
+   * Caseload-scoped metadata list for a wound.
+   */
+  async listForWound(user: AuthUser, woundId: string) {
+    this.assertFeatureEnabled();
+
+    const [wound] = await this.db
+      .select({
+        id: wounds.id,
+        episodeId: wounds.episodeId,
+      })
+      .from(wounds)
+      .where(
+        and(
+          eq(wounds.orgId, user.orgId),
+          eq(wounds.id, woundId),
+          isNull(wounds.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    if (!wound) {
+      throw new NotFoundException({
+        error: { code: 'NOT_FOUND', message: 'Wound not found' },
+      });
+    }
+
+    await this.assertEpisodeAccess(user, wound.episodeId);
+
+    const rows = await this.db
+      .select()
+      .from(woundPhotos)
+      .where(
+        and(
+          eq(woundPhotos.orgId, user.orgId),
+          eq(woundPhotos.woundId, woundId),
+          ne(woundPhotos.status, 'soft_deleted'),
+          isNull(woundPhotos.deletedAt),
+        ),
+      )
+      .orderBy(desc(woundPhotos.capturedAt))
+      .limit(200);
+
+    return { data: rows.map((r) => toPhotoMetadata(r, user)) };
+  }
+
+  /**
+   * GET /v1/wound-photos/:id
+   * Metadata detail (geo role-filtered). No ciphertext / DEK.
+   */
+  async getDetail(user: AuthUser, photoId: string) {
+    this.assertFeatureEnabled();
+
+    const photo = await this.loadPhotoOrThrow(user.orgId, photoId);
+    await this.assertEpisodeAccess(user, photo.episodeId);
+
+    return toPhotoMetadata(photo, user);
+  }
+
+  // ─── Content decrypt proxy (canonical view — K22) ─────────────────────────
+
+  /**
+   * GET /v1/wound-photos/:id/content
+   * Decrypt-proxy stream only (no view-url). Cache-Control set by controller.
+   * Clinical path: assert WOUND_PHOTO_CLINICAL (K28). Compliance: break-glass (K16).
+   */
+  async getContent(
+    user: AuthUser,
+    photoId: string,
+    opts?: RequestMeta & { breakGlassReason?: string | null },
+  ): Promise<{ stream: Readable; contentType: string; release: () => void }> {
+    this.assertFeatureEnabled();
+
+    const photo = await this.loadPhotoOrThrow(user.orgId, photoId);
+    await this.assertEpisodeAccess(user, photo.episodeId);
+
+    if (photo.status === 'soft_deleted' || photo.status === 'abandoned') {
+      throw new GoneException({
+        error: {
+          code: 'PHOTO_GONE',
+          message: `Photo is ${photo.status}`,
+        },
+      });
+    }
+
+    if (photo.status !== 'available') {
+      throw new ConflictException({
+        error: {
+          code: 'INVALID_PHOTO_STATE',
+          message: `Photo content not available (status=${photo.status})`,
+        },
+      });
+    }
+
+    if (!photo.wrappedDek || !photo.storageKey) {
+      throw new ServiceUnavailableException({
+        error: {
+          code: 'PHOTO_ENVELOPE_INCOMPLETE',
+          message: 'Photo is missing wrapped DEK or storage key',
+        },
+      });
+    }
+
+    if (!this.photoCrypto.isConfigured()) {
+      throw new ServiceUnavailableException({
+        error: {
+          code: 'PHOTO_KEK_NOT_CONFIGURED',
+          message: 'PHOTO_KEK is not configured',
+        },
+      });
+    }
+
+    if (!this.storage.isConfigured()) {
+      throw new ServiceUnavailableException({
+        error: {
+          code: 'OBJECT_STORAGE_NOT_CONFIGURED',
+          message: 'S3_ENDPOINT is not configured',
+        },
+      });
+    }
+
+    const reason = opts?.breakGlassReason?.trim() || '';
+    const breakGlassRequested = reason.length > 0;
+    let usedBreakGlass = false;
+
+    if (breakGlassRequested) {
+      // K16: BREAK_GLASS_PHI + non-empty reason; skip purpose assert
+      if (!user.permissions.includes(Permission.BREAK_GLASS_PHI)) {
+        throw new ForbiddenException({
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Break-glass requires break_glass:phi permission',
+          },
+        });
+      }
+      usedBreakGlass = true;
+    } else if (canUseClinicalContentPath(user)) {
+      // K28: field_rn / clinical_lead / admin assert CLINICAL only (not QA)
+      await this.consents.assertConsentPurpose(user, {
+        patientId: photo.patientId,
+        consentRecordId: photo.consentRecordId,
+        purpose: 'WOUND_PHOTO_CLINICAL',
+        episodeId: photo.episodeId,
+      });
+    } else {
+      // compliance (and any other read role without clinical path)
+      throw new ForbiddenException({
+        error: {
+          code: 'BREAK_GLASS_REQUIRED',
+          message:
+            'Wound photo content requires clinical purpose path or break-glass with reason',
+        },
+      });
+    }
+
+    if (!tryAcquireDecryptSlot()) {
+      throw new ServiceUnavailableException({
+        error: {
+          code: 'DECRYPT_BUSY',
+          message: 'Too many concurrent photo decrypts; retry shortly',
+        },
+      });
+    }
+
+    let released = false;
+    const release = () => {
+      if (!released) {
+        released = true;
+        releaseDecryptSlot();
+      }
+    };
+
+    let dek: Buffer | null = null;
+    try {
+      dek = this.photoCrypto.unwrapDek(photo.wrappedDek, photo.kekKeyId);
+      const cipherStream = await this.storage.getObjectStream(photo.storageKey);
+      // Stream copies DEK; safe to zeroize caller buffer immediately after create
+      const decryptStream = createAesGcmDecryptStream(dek);
+      dek.fill(0);
+      dek = null;
+
+      cipherStream.on('error', (err) => {
+        this.logger.warn(
+          `content cipher stream error photoId=${photo.id} err=${err?.message ?? 'unknown'}`,
+        );
+        decryptStream.destroy(err);
+        release();
+      });
+      decryptStream.on('error', () => {
+        release();
+      });
+      decryptStream.on('close', () => {
+        release();
+      });
+      decryptStream.on('end', () => {
+        release();
+      });
+
+      cipherStream.pipe(decryptStream);
+
+      if (usedBreakGlass) {
+        // High-severity break-glass audit (actorType break_glass; redacted payloads)
+        await this.audit.write({
+          orgId: user.orgId,
+          actorUserId: user.id,
+          actorType: 'break_glass',
+          action: 'wound_photo.view_break_glass',
+          resourceType: 'wound_photo',
+          resourceId: photo.id,
+          patientId: photo.patientId,
+          episodeId: photo.episodeId,
+          reason,
+          after: {
+            severity: 'high',
+            photoId: photo.id,
+            status: photo.status,
+          },
+          requestId: opts?.requestId,
+          ip: opts?.ip,
+          userAgent: opts?.userAgent,
+          deviceId: photo.deviceId,
+        });
+      } else {
+        await this.audit.writeFromUser(user, {
+          action: 'wound_photo.view',
+          resourceType: 'wound_photo',
+          resourceId: photo.id,
+          patientId: photo.patientId,
+          episodeId: photo.episodeId,
+          after: safePhotoAudit(photo),
+          requestId: opts?.requestId,
+          ip: opts?.ip,
+          userAgent: opts?.userAgent,
+          deviceId: photo.deviceId,
+        });
+      }
+
+      this.logger.log(
+        `content stream photoId=${photo.id} breakGlass=${usedBreakGlass}`,
+      );
+
+      return {
+        stream: decryptStream,
+        contentType: photo.contentType || 'image/jpeg',
+        release,
+      };
+    } catch (err) {
+      if (dek) {
+        dek.fill(0);
+        dek = null;
+      }
+      release();
+      throw err;
+    }
+  }
+
+  // ─── Soft-delete ──────────────────────────────────────────────────────────
+
+  /**
+   * DELETE /v1/wound-photos/:id
+   * Soft-delete available photos only. field_rn lacks wound_photo:delete (guard + service).
+   * Leads / compliance / admin: available → soft_deleted.
+   */
+  async softDelete(user: AuthUser, photoId: string, meta?: RequestMeta) {
+    this.assertFeatureEnabled();
+
+    if (!user.permissions.includes(Permission.WOUND_PHOTO_DELETE)) {
+      throw new ForbiddenException({
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Requires wound_photo:delete',
+        },
+      });
+    }
+
+    const photo = await this.loadPhotoOrThrow(user.orgId, photoId);
+    await this.assertEpisodeAccess(user, photo.episodeId);
+
+    if (photo.status === 'soft_deleted') {
+      return {
+        id: photo.id,
+        clientPhotoId: photo.clientPhotoId,
+        status: photo.status,
+      };
+    }
+
+    if (photo.status !== 'available') {
+      throw new ConflictException({
+        error: {
+          code: 'INVALID_PHOTO_STATE',
+          message: `Only available photos can be soft-deleted (got ${photo.status})`,
+        },
+      });
+    }
+
+    const now = new Date();
+    const [updated] = await this.db
+      .update(woundPhotos)
+      .set({
+        status: 'soft_deleted',
+        deletedAt: now,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(woundPhotos.id, photo.id),
+          eq(woundPhotos.orgId, user.orgId),
+          eq(woundPhotos.status, 'available'),
+        ),
+      )
+      .returning();
+
+    if (!updated) {
+      throw new ConflictException({
+        error: {
+          code: 'INVALID_PHOTO_STATE',
+          message: 'Photo could not be soft-deleted (state changed)',
+        },
+      });
+    }
+
+    await this.audit.writeFromUser(user, {
+      action: 'wound_photo.soft_delete',
       resourceType: 'wound_photo',
       resourceId: updated.id,
       patientId: updated.patientId,
