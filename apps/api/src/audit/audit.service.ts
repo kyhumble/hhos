@@ -92,6 +92,9 @@ export class AuditService {
         episodeId: auditEvents.episodeId,
         reason: auditEvents.reason,
         requestId: auditEvents.requestId,
+        ip: auditEvents.ip,
+        userAgent: auditEvents.userAgent,
+        deviceId: auditEvents.deviceId,
         before: auditEvents.before,
         after: auditEvents.after,
       })

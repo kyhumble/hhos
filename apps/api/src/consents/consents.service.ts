@@ -597,6 +597,9 @@ export class ConsentsService {
       });
     }
 
+    // Steps 3–7 first so revoked/expired/mismatch never pay a purpose SELECT.
+    assertConsentRecordBind(record, args);
+
     const purposes = await this.db
       .select({ purposeCode: consentTemplatePurposes.purposeCode })
       .from(consentTemplatePurposes)
@@ -620,22 +623,23 @@ export type ConsentPurposeRecord = {
   expiresAt: Date | null;
 };
 
+type ConsentPurposeArgs = {
+  patientId: string;
+  purpose: PurposeCode;
+  episodeId?: string;
+};
+
 /**
- * Ordered post-load checks for assertConsentPurpose (steps 3–8).
- * Exported for unit tests without Nest DI / DB.
+ * Ordered bind checks for assertConsentPurpose (steps 3–7).
+ * Used before fetching template purposes so failures short-circuit the extra SELECT.
  *
- * Order (locked): revoked → not signed → expired → patient → episode → purpose.
+ * Order (locked): revoked → not signed → expired → patient → episode.
  */
-export function evaluateConsentPurposeRecord(
+export function assertConsentRecordBind(
   record: ConsentPurposeRecord,
-  args: {
-    patientId: string;
-    purpose: PurposeCode;
-    episodeId?: string;
-  },
-  templatePurposeCodes: string[],
+  args: Pick<ConsentPurposeArgs, 'patientId' | 'episodeId'>,
   now: Date = new Date(),
-): { consentRecordId: string; templateId: string } {
+): void {
   // 3. Revoked before generic not-signed
   if (record.status === 'revoked') {
     throw new ForbiddenException({
@@ -689,6 +693,21 @@ export function evaluateConsentPurposeRecord(
       },
     });
   }
+}
+
+/**
+ * Ordered post-load checks for assertConsentPurpose (steps 3–8).
+ * Exported for unit tests without Nest DI / DB.
+ *
+ * Order (locked): revoked → not signed → expired → patient → episode → purpose.
+ */
+export function evaluateConsentPurposeRecord(
+  record: ConsentPurposeRecord,
+  args: ConsentPurposeArgs,
+  templatePurposeCodes: string[],
+  now: Date = new Date(),
+): { consentRecordId: string; templateId: string } {
+  assertConsentRecordBind(record, args, now);
 
   // 8. Purpose must be on template
   if (!templatePurposeCodes.includes(args.purpose)) {
@@ -702,4 +721,3 @@ export function evaluateConsentPurposeRecord(
 
   return { consentRecordId: record.id, templateId: record.templateId };
 }
-

@@ -7,7 +7,8 @@ const SENSITIVE_KEYS = new Set([
   'encryptedssn',
   'memberid',
   'memberidencrypted',
-  'databse64',
+  // was typo `databse64` — normalized form of dataBase64 / data_base64
+  'database64',
   'signatureblobkey',
   'password',
   'token',
