@@ -9,11 +9,15 @@ import { DocumentsModule } from './documents/documents.module';
 import { AuditModule } from './audit/audit.module';
 import { DbModule } from './common/db.module';
 import { CommonDomainModule } from './common/common.module';
+import { StorageModule } from './storage/storage.module';
+import { PhotoCryptoModule } from './photo-crypto/photo-crypto.module';
 
 @Module({
   imports: [
     DbModule,
     CommonDomainModule,
+    StorageModule,
+    PhotoCryptoModule,
     HealthModule,
     AuthModule,
     AuditModule,

@@ -60,6 +60,8 @@ services:
       mc alias set local http://minio:9000 hhosminio hhosminio_dev_secret;
       mc mb -p local/hhos-documents || true;
       mc anonymous set none local/hhos-documents;
+      printf '%s' '{\"CORSRules\":[{\"AllowedOrigins\":[\"*\"],\"AllowedMethods\":[\"GET\",\"PUT\",\"HEAD\"],\"AllowedHeaders\":[\"*\"],\"ExposeHeaders\":[\"ETag\"],\"MaxAgeSeconds\":3000}]}' > /tmp/cors.json;
+      mc cors set local/hhos-documents /tmp/cors.json || true;
       exit 0;
       "
 

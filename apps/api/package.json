@@ -8,9 +8,11 @@
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"no lint configured\"",
-    "test": "echo \"no tests yet\""
+    "test": "tsx --test src/common/features.spec.ts src/photo-crypto/*.spec.ts src/storage/*.spec.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.758.0",
+    "@aws-sdk/s3-request-presigner": "^3.758.0",
     "@hhos/db": "workspace:*",
     "@hhos/shared": "workspace:*",
     "@nestjs/common": "^10.4.15",
@@ -31,6 +33,7 @@
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
 }
