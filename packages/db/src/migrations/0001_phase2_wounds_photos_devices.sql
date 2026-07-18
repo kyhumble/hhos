@@ -143,6 +143,8 @@ CREATE TABLE "devices" (
 );
 --> statement-breakpoint
 ALTER TABLE "organizations" ALTER COLUMN "settings" SET DEFAULT '{"socDueHours":48,"photoGeotagEnabled":false,"coverageVerifiedRequired":false,"woundPathwayDefault":true,"largeWoundLengthCm":10,"largeWoundWidthCm":10,"largeWoundAreaCm2":50,"photoMaxBytes":12000000,"photoPendingTtlHours":24}'::jsonb;--> statement-breakpoint
+-- Backfill Phase 2 settings keys on existing org rows (column default only affects new inserts)
+UPDATE "organizations" SET "settings" = "settings" || '{"largeWoundLengthCm":10,"largeWoundWidthCm":10,"largeWoundAreaCm2":50,"photoMaxBytes":12000000,"photoPendingTtlHours":24}'::jsonb;--> statement-breakpoint
 ALTER TABLE "clinical_tasks" ADD CONSTRAINT "clinical_tasks_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clinical_tasks" ADD CONSTRAINT "clinical_tasks_episode_id_episodes_id_fk" FOREIGN KEY ("episode_id") REFERENCES "public"."episodes"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clinical_tasks" ADD CONSTRAINT "clinical_tasks_patient_id_patients_id_fk" FOREIGN KEY ("patient_id") REFERENCES "public"."patients"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -172,6 +174,8 @@ ALTER TABLE "device_revocations" ADD CONSTRAINT "device_revocations_revoked_by_u
 ALTER TABLE "devices" ADD CONSTRAINT "devices_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "devices" ADD CONSTRAINT "devices_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "photo_annotations_org_client_annotation_uidx" ON "photo_annotations" USING btree ("org_id","client_annotation_id");--> statement-breakpoint
+CREATE INDEX "photo_annotations_org_status_created_idx" ON "photo_annotations" USING btree ("org_id","status","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "visits_org_client_visit_uidx" ON "visits" USING btree ("org_id","client_visit_id") WHERE "visits"."client_visit_id" IS NOT NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "wound_photos_org_client_photo_uidx" ON "wound_photos" USING btree ("org_id","client_photo_id");--> statement-breakpoint
+CREATE INDEX "wound_photos_org_status_created_idx" ON "wound_photos" USING btree ("org_id","status","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "devices_org_device_uidx" ON "devices" USING btree ("org_id","device_id");

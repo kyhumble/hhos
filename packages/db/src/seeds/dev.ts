@@ -2,7 +2,7 @@
  * SYNTHETIC demo data only — never seed real patient information.
  */
 import { createHash } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { ALL_PERMISSIONS, ROLE_PERMISSIONS, type RoleCode } from '@hhos/shared';
 import { createDb } from '../client';
 import {
@@ -66,7 +66,15 @@ async function main() {
 
   console.log('[hhos/db] Seeding synthetic demo data...');
 
-  // Org
+  // Org — merge Phase 2 settings on re-seed so PR1-era rows pick up photo/large-wound keys
+  const phase2OrgSettingsPatch = {
+    largeWoundLengthCm: 10,
+    largeWoundWidthCm: 10,
+    largeWoundAreaCm2: 50,
+    photoMaxBytes: 12_000_000,
+    photoPendingTtlHours: 24,
+  } as const;
+
   await db
     .insert(organizations)
     .values({
@@ -79,14 +87,15 @@ async function main() {
         photoGeotagEnabled: false,
         coverageVerifiedRequired: false,
         woundPathwayDefault: true,
-        largeWoundLengthCm: 10,
-        largeWoundWidthCm: 10,
-        largeWoundAreaCm2: 50,
-        photoMaxBytes: 12_000_000,
-        photoPendingTtlHours: 24,
+        ...phase2OrgSettingsPatch,
       },
     })
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      target: organizations.id,
+      set: {
+        settings: sql`${organizations.settings} || ${JSON.stringify(phase2OrgSettingsPatch)}::jsonb`,
+      },
+    });
 
   // Permissions — re-run this seed after pulling Phase 2+ permission codes so
   // `permissions` / `role_permissions` pick up wound_photo:*, clinical_task:*, device:*.

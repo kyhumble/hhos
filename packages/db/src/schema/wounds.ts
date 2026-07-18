@@ -4,6 +4,7 @@ import {
   char,
   customType,
   doublePrecision,
+  index,
   integer,
   numeric,
   pgEnum,
@@ -223,6 +224,12 @@ export const woundPhotos = pgTable(
       t.orgId,
       t.clientPhotoId,
     ),
+    /** List + orphan GC: pending_* older than TTL, caseload photo lists. */
+    orgStatusCreatedIdx: index('wound_photos_org_status_created_idx').on(
+      t.orgId,
+      t.status,
+      t.createdAt,
+    ),
   }),
 );
 
@@ -258,6 +265,12 @@ export const photoAnnotations = pgTable(
     orgClientAnnotationIdx: uniqueIndex('photo_annotations_org_client_annotation_uidx').on(
       t.orgId,
       t.clientAnnotationId,
+    ),
+    /** List + orphan GC for pending annotation uploads. */
+    orgStatusCreatedIdx: index('photo_annotations_org_status_created_idx').on(
+      t.orgId,
+      t.status,
+      t.createdAt,
     ),
   }),
 );
