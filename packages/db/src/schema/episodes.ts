@@ -23,7 +23,12 @@ export const episodeStatusEnum = pgEnum('episode_status', [
   'non_admit',
 ]);
 
-export const careTypeEnum = pgEnum('care_type', ['home_health', 'wound_only', 'other']);
+export const careTypeEnum = pgEnum('care_type', [
+  'home_health',
+  'wound_only',
+  'hospice',
+  'other',
+]);
 
 export const f2fStatusEnum = pgEnum('f2f_status', [
   'unknown',

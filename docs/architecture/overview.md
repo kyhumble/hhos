@@ -40,6 +40,7 @@
 | **[Phase 4 — Service AI / routing](./phase-4-service-ai-routing.md)** | HITL route suggestions, visit tasks, hospitalization alerts (`FEATURE_SERVICE_AI`) |
 | **[Multi-tenant](./multi-tenant.md)** | Org create, invites, per-org settings/flags; RLS/KMS still future |
 | **[Phase 5 — Orders / 485 e-sign](./phase-5-orders-esign.md)** | POC-485, orders, F2F, hospice cert packages; physician magic-link sign (`FEATURE_ORDERS_ESIGN`) |
+| **[Phase 6 — Hospice](./phase-6-hospice.md)** | Elections, benefit periods, LOC, cert via Phase 5 (`FEATURE_HOSPICE`) |
 | `docs/compliance/threat-model-v0.md` | Baseline + photo pipeline threats |
 | `docs/domain/consent-purposes.md` | Purpose codes including `WOUND_PHOTO_CLINICAL` |
 

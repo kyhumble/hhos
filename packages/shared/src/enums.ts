@@ -101,7 +101,7 @@ export const EpisodeStatus = [
 ] as const;
 export type EpisodeStatus = (typeof EpisodeStatus)[number];
 
-export const CareType = ['home_health', 'wound_only', 'other'] as const;
+export const CareType = ['home_health', 'wound_only', 'hospice', 'other'] as const;
 export type CareType = (typeof CareType)[number];
 
 export const F2fStatus = ['unknown', 'scheduled', 'completed', 'missing', 'waived_review'] as const;
@@ -432,3 +432,26 @@ export const SignatureMethod = [
   'external_attested',
 ] as const;
 export type SignatureMethod = (typeof SignatureMethod)[number];
+
+// ─── Phase 6: hospice ───────────────────────────────────────────────────────
+
+export const HospiceElectionStatus = [
+  'draft',
+  'active',
+  'revoked',
+  'discharged',
+  'transferred',
+] as const;
+export type HospiceElectionStatus = (typeof HospiceElectionStatus)[number];
+
+/** Medicare hospice levels of care. */
+export const HospiceLevelOfCare = [
+  'routine',
+  'continuous',
+  'respite',
+  'gip',
+] as const;
+export type HospiceLevelOfCare = (typeof HospiceLevelOfCare)[number];
+
+export const HospiceBenefitPeriodStatus = ['open', 'closed'] as const;
+export type HospiceBenefitPeriodStatus = (typeof HospiceBenefitPeriodStatus)[number];

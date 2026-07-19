@@ -13,3 +13,4 @@ export * from './pdgm';
 export * from './routing';
 export * from './org';
 export * from './orders';
+export * from './hospice';

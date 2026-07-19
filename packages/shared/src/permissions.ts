@@ -45,6 +45,9 @@ export const Permission = {
   ORDER_READ: 'order:read',
   ORDER_WRITE: 'order:write',
   ORDER_SEND: 'order:send',
+  // Phase 6 — hospice
+  HOSPICE_READ: 'hospice:read',
+  HOSPICE_WRITE: 'hospice:write',
 } as const;
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission];
@@ -78,6 +81,8 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.ROUTING_READ,
     R.ALERT_READ,
     R.ORDER_READ,
+    R.HOSPICE_READ,
+    R.HOSPICE_WRITE,
   ],
   intake_coordinator: [
     R.PATIENT_READ,
@@ -106,6 +111,8 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.ORDER_READ,
     R.ORDER_WRITE,
     R.ORDER_SEND,
+    R.HOSPICE_READ,
+    R.HOSPICE_WRITE,
   ],
   clinical_lead: [
     R.PATIENT_READ,
@@ -144,6 +151,8 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.ORDER_READ,
     R.ORDER_WRITE,
     R.ORDER_SEND,
+    R.HOSPICE_READ,
+    R.HOSPICE_WRITE,
   ],
   billing: [
     R.PATIENT_READ,
@@ -158,6 +167,7 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.VISIT_TASK_READ,
     R.ALERT_READ,
     R.ORDER_READ,
+    R.HOSPICE_READ,
   ],
   compliance: [
     R.PATIENT_READ,
@@ -178,6 +188,7 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.ALERT_READ,
     R.ALERT_WRITE,
     R.ORDER_READ,
+    R.HOSPICE_READ,
   ],
   admin: [...ALL_PERMISSIONS],
 };

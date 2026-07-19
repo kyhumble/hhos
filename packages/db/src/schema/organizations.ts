@@ -16,6 +16,7 @@ export type OrgSettingsJson = {
     oasis?: boolean;
     serviceAi?: boolean;
     ordersEsign?: boolean;
+    hospice?: boolean;
   };
 };
 
@@ -46,6 +47,7 @@ export const organizations = pgTable(
           oasis: true,
           serviceAi: true,
           ordersEsign: true,
+          hospice: true,
         },
       }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

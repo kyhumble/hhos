@@ -88,6 +88,7 @@ async function main() {
       oasis: true,
       serviceAi: true,
       ordersEsign: true,
+      hospice: true,
     },
   };
 
