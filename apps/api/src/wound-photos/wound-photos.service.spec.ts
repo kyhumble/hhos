@@ -1,7 +1,8 @@
 /**
- * Unit tests for wound photo control plane (PR 5b + PR 6).
+ * Unit tests for wound photo control plane (PR 5b + PR 6 + PR 7).
  * PR5b: second wrap 409, wrong hash 409, device errors, feature off, is_large only.
  * PR6: content purpose/revoke, break-glass audit, soft-delete rules, DECRYPT_BUSY.
+ * PR7: annotations child DEK, measurements PATCH, large-wound task hook, orphan GC.
  */
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
@@ -15,11 +16,16 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { HhosDb } from '@hhos/db';
-import { WoundPhotosService, type WoundPhotoRow } from './wound-photos.service';
+import {
+  WoundPhotosService,
+  type PhotoAnnotationRow,
+  type WoundPhotoRow,
+} from './wound-photos.service';
 import type { AuthUser } from '../common/auth.types';
 import type { AuditService } from '../audit/audit.service';
 import type { ConsentsService } from '../consents/consents.service';
 import type { DevicesService } from '../devices/devices.service';
+import type { ClinicalTasksService } from '../clinical-tasks/clinical-tasks.service';
 import type { PhotoEnvelopeCrypto } from '../photo-crypto/photo-envelope.crypto';
 import { aesGcmEncrypt } from '../photo-crypto/aes-gcm-frame';
 import type { ObjectStorageService } from '../storage/object-storage.service';
@@ -29,6 +35,7 @@ import {
   tryAcquireDecryptSlot,
 } from './decrypt-limit';
 import { resetWrapRateLimitForTests } from './wrap-rate-limit';
+import { OrphanGcService } from './orphan-gc.service';
 
 const user: AuthUser = {
   id: 'user-1',
@@ -151,9 +158,33 @@ describe('WoundPhotosService control plane', () => {
     resetDecryptLimitForTests();
   });
 
+  function baseAnnotation(
+    over: Partial<PhotoAnnotationRow> = {},
+  ): PhotoAnnotationRow {
+    return {
+      id: 'annot-1',
+      orgId: 'org-1',
+      woundPhotoId: 'photo-1',
+      clientAnnotationId: '22222222-2222-2222-2222-222222222222',
+      annotationType: 'vector_json',
+      status: 'pending_upload',
+      storageKey: 'org/org-1/wound-photo-annotations/photo-1/annot-1.bin',
+      wrappedDek: null,
+      kekKeyId: null,
+      cipherSha256: null,
+      byteSize: 50,
+      createdBy: 'user-1',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      deletedAt: null,
+      ...over,
+    } as PhotoAnnotationRow;
+  }
+
   function makeService(opts: {
     photo?: WoundPhotoRow | null;
-    updateReturning?: WoundPhotoRow[];
+    annotation?: PhotoAnnotationRow | null;
+    updateReturning?: Array<WoundPhotoRow | PhotoAnnotationRow>;
+    insertReturning?: Array<WoundPhotoRow | PhotoAnnotationRow>;
     deviceError?: Error;
     objectBytes?: Buffer;
     orgSettings?: Record<string, unknown>;
@@ -161,23 +192,44 @@ describe('WoundPhotosService control plane', () => {
     auditCalls?: AuditCall[];
     unwrapDek?: (wrapped: Buffer, kekKeyId?: string | null) => Buffer;
     listRows?: WoundPhotoRow[];
+    taskEnsureCalls?: unknown[];
   }): WoundPhotosService {
     const photo = opts.photo === undefined ? basePhoto() : opts.photo;
+    const annotation =
+      opts.annotation === undefined ? null : opts.annotation;
     const listRows = opts.listRows ?? (photo ? [photo] : []);
+    const taskEnsureCalls = opts.taskEnsureCalls ?? [];
 
     const db = {
       select() {
         return {
-          from() {
+          from(table: Record<string, unknown>) {
+            // Distinguish drizzle table objects by column shape
+            const isAnnotationTable =
+              'clientAnnotationId' in table || 'annotationType' in table;
+            const isOrgTable = 'settings' in table && !('clientPhotoId' in table);
             return {
               where() {
                 return {
                   limit() {
+                    if (isAnnotationTable) {
+                      return Promise.resolve(annotation ? [annotation] : []);
+                    }
+                    if (isOrgTable) {
+                      return Promise.resolve([
+                        { settings: opts.orgSettings ?? {} },
+                      ]);
+                    }
                     return Promise.resolve(photo ? [photo] : []);
                   },
                   orderBy() {
                     return {
                       limit() {
+                        if (isAnnotationTable) {
+                          return Promise.resolve(
+                            annotation ? [annotation] : [],
+                          );
+                        }
                         return Promise.resolve(listRows);
                       },
                     };
@@ -215,7 +267,7 @@ describe('WoundPhotosService control plane', () => {
           values() {
             return {
               returning() {
-                return Promise.resolve([]);
+                return Promise.resolve(opts.insertReturning ?? []);
               },
             };
           },
@@ -252,6 +304,8 @@ describe('WoundPhotosService control plane', () => {
         bucket: 'hhos-documents',
       }),
       woundPhotoObjectKey: () => 'org/org-1/wound-photos/2026/01/photo-1.bin',
+      woundPhotoAnnotationObjectKey: () =>
+        'org/org-1/wound-photo-annotations/photo-1/annot-1.bin',
     } as unknown as ObjectStorageService;
 
     const photoCrypto = {
@@ -270,6 +324,14 @@ describe('WoundPhotosService control plane', () => {
       getKekKeyId: () => 'local/v1',
     } as unknown as PhotoEnvelopeCrypto;
 
+    const clinicalTasks = {
+      ensureOpenLargeWoundReview: async (p: unknown, o?: unknown) => {
+        taskEnsureCalls.push({ photo: p, opts: o });
+        return { id: 'task-1', status: 'open', taskType: 'large_wound_review' };
+      },
+      backfillLargeWoundTasks: async () => 0,
+    } as unknown as ClinicalTasksService;
+
     return new WoundPhotosService(
       db,
       opts.auditCalls ? capturingAudit(opts.auditCalls) : silentAudit(),
@@ -277,6 +339,7 @@ describe('WoundPhotosService control plane', () => {
       devices,
       storage,
       photoCrypto,
+      clinicalTasks,
     );
   }
 
@@ -366,7 +429,7 @@ describe('WoundPhotosService control plane', () => {
     );
   });
 
-  it('complete matching hash sets isLargeWound from measurements (no clinical_tasks path)', async () => {
+  it('complete matching hash sets isLargeWound and hooks ClinicalTasksService (K29)', async () => {
     process.env.FEATURE_WOUND_PHOTOS = 'true';
     const objectBytes = Buffer.from('cipher-ok');
     const digest = createHash('sha256').update(objectBytes).digest('hex');
@@ -388,10 +451,12 @@ describe('WoundPhotosService control plane', () => {
       uploadedAt: new Date(),
     });
 
+    const taskEnsureCalls: unknown[] = [];
     const svc = makeService({
       photo: pendingPut,
       objectBytes,
       updateReturning: [available],
+      taskEnsureCalls,
     });
 
     const res = await svc.complete(user, 'photo-1', {
@@ -404,11 +469,8 @@ describe('WoundPhotosService control plane', () => {
 
     assert.equal(res.status, 'available');
     assert.equal(res.isLargeWound, true);
-    assert.equal(
-      // @ts-expect-error intentional — prove no clinical tasks collaborator
-      (svc as { clinicalTasks?: unknown }).clinicalTasks,
-      undefined,
-    );
+    // PR7 sole owner of task rows — hook must run when large
+    assert.equal(taskEnsureCalls.length, 1);
   });
 
   it('missing device → DEVICE_NOT_REGISTERED propagates', async () => {
@@ -711,6 +773,9 @@ describe('WoundPhotosService control plane', () => {
     } as unknown as PhotoEnvelopeCrypto;
 
     const audit = capturingAudit(auditCalls);
+    const clinicalTasks = {
+      ensureOpenLargeWoundReview: async () => null,
+    } as unknown as ClinicalTasksService;
     const svc = new WoundPhotosService(
       db,
       audit,
@@ -718,6 +783,7 @@ describe('WoundPhotosService control plane', () => {
       { assertActiveDevice: async () => ({}) } as unknown as DevicesService,
       storage,
       photoCrypto,
+      clinicalTasks,
     );
 
     // field_rn cannot break-glass
@@ -854,5 +920,333 @@ describe('WoundPhotosService control plane', () => {
     assert.equal(res.data.length, 1);
     assert.equal(res.data[0]!.hasWrappedDek, true);
     assert.equal('wrappedDek' in res.data[0]!, false);
+  });
+
+  // ─── PR 7 ─────────────────────────────────────────────────────────────────
+
+  it('annotation initiate fails when parent not available → PARENT_NOT_AVAILABLE', async () => {
+    process.env.FEATURE_WOUND_PHOTOS = 'true';
+    const svc = makeService({
+      photo: basePhoto({ status: 'pending_put' }),
+    });
+    await assert.rejects(
+      () =>
+        svc.initiateAnnotation(user, 'photo-1', {
+          clientAnnotationId: '22222222-2222-2222-2222-222222222222',
+          annotationType: 'vector_json',
+          contentType: 'application/json',
+          byteSize: 100,
+          device: {
+            deviceId: 'device-abc-12345',
+            model: 'iPhone',
+            os: '17',
+            appVersion: '1.0.0',
+          },
+        }),
+      (err: unknown) => {
+        assert.ok(err instanceof ConflictException);
+        const body = (err as ConflictException).getResponse() as {
+          error?: { code?: string };
+        };
+        assert.equal(body.error?.code, 'PARENT_NOT_AVAILABLE');
+        return true;
+      },
+    );
+  });
+
+  it('annotation second wrap → 409 DEK_ALREADY_WRAPPED (child DEK)', async () => {
+    process.env.FEATURE_WOUND_PHOTOS = 'true';
+    const photo = basePhoto({
+      status: 'available',
+      wrappedDek: Buffer.alloc(32, 1),
+    });
+    const annotation = baseAnnotation({
+      status: 'pending_put',
+      wrappedDek: Buffer.from('already-child'),
+      kekKeyId: 'local/v1',
+    });
+    const svc = makeService({ photo, annotation });
+    await assert.rejects(
+      () =>
+        svc.wrapAnnotationDek(user, 'annot-1', {
+          dekBase64: Buffer.alloc(32, 9).toString('base64'),
+        }),
+      (err: unknown) => {
+        assert.ok(err instanceof ConflictException);
+        const body = (err as ConflictException).getResponse() as {
+          error?: { code?: string };
+        };
+        assert.equal(body.error?.code, 'DEK_ALREADY_WRAPPED');
+        return true;
+      },
+    );
+  });
+
+  it('PATCH measurements on available creates large-wound task when crossing threshold', async () => {
+    process.env.FEATURE_WOUND_PHOTOS = 'true';
+    const available = basePhoto({
+      status: 'available',
+      wrappedDek: Buffer.alloc(32, 1),
+      lengthCm: '2.00',
+      widthCm: '2.00',
+      isLargeWound: false,
+    });
+    const after = basePhoto({
+      status: 'available',
+      wrappedDek: Buffer.alloc(32, 1),
+      lengthCm: '12.00',
+      widthCm: '6.00',
+      isLargeWound: true,
+    });
+    const taskEnsureCalls: unknown[] = [];
+    const auditCalls: AuditCall[] = [];
+    // org settings load uses select — return settings via photo path is imperfect;
+    // computeIsLargeWound uses defaults 10/10/50 so length 12 is large.
+    const svc = makeService({
+      photo: available,
+      updateReturning: [after],
+      taskEnsureCalls,
+      auditCalls,
+    });
+
+    // Override loadOrgSettings by patching select for organizations — defaults work.
+    const res = await svc.patchMeasurements(user, 'photo-1', {
+      lengthCm: 12,
+      widthCm: 6,
+    });
+    assert.equal(res.isLargeWound, true);
+    assert.equal(taskEnsureCalls.length, 1);
+    assert.equal(
+      auditCalls[0]!.payload.action,
+      'wound_photo.measurements_update',
+    );
+  });
+
+  it('PATCH measurements below threshold does not call ensure (never auto-cancel)', async () => {
+    process.env.FEATURE_WOUND_PHOTOS = 'true';
+    const available = basePhoto({
+      status: 'available',
+      wrappedDek: Buffer.alloc(32, 1),
+      lengthCm: '12.00',
+      widthCm: '6.00',
+      isLargeWound: true,
+    });
+    const after = basePhoto({
+      status: 'available',
+      wrappedDek: Buffer.alloc(32, 1),
+      lengthCm: '2.00',
+      widthCm: '2.00',
+      isLargeWound: false,
+    });
+    const taskEnsureCalls: unknown[] = [];
+    const svc = makeService({
+      photo: available,
+      updateReturning: [after],
+      taskEnsureCalls,
+    });
+    const res = await svc.patchMeasurements(user, 'photo-1', {
+      lengthCm: 2,
+      widthCm: 2,
+    });
+    assert.equal(res.isLargeWound, false);
+    // No ensure call when not large — open tasks left for clinical lead
+    assert.equal(taskEnsureCalls.length, 0);
+  });
+
+  it('PATCH measurements on pending photo → INVALID_PHOTO_STATE', async () => {
+    process.env.FEATURE_WOUND_PHOTOS = 'true';
+    const svc = makeService({
+      photo: basePhoto({ status: 'pending_put' }),
+    });
+    await assert.rejects(
+      () => svc.patchMeasurements(user, 'photo-1', { lengthCm: 5 }),
+      (err: unknown) => {
+        assert.ok(err instanceof ConflictException);
+        const body = (err as ConflictException).getResponse() as {
+          error?: { code?: string };
+        };
+        assert.equal(body.error?.code, 'INVALID_PHOTO_STATE');
+        return true;
+      },
+    );
+  });
+});
+
+describe('ClinicalTasksService large-wound idempotency', () => {
+  it('ensureOpenLargeWoundReview returns null when not large', async () => {
+    process.env.FEATURE_WOUND_PHOTOS = 'true';
+    const { ClinicalTasksService } = await import(
+      '../clinical-tasks/clinical-tasks.service'
+    );
+    const db = {
+      select() {
+        return {
+          from() {
+            return {
+              where() {
+                return {
+                  limit() {
+                    return Promise.resolve([]);
+                  },
+                };
+              },
+            };
+          },
+        };
+      },
+      insert() {
+        return {
+          values() {
+            return {
+              returning() {
+                return Promise.resolve([]);
+              },
+            };
+          },
+        };
+      },
+    } as unknown as HhosDb;
+    const svc = new ClinicalTasksService(db, {
+      write: async () => {},
+      writeFromUser: async () => {},
+    } as unknown as AuditService);
+
+    const result = await svc.ensureOpenLargeWoundReview({
+      id: 'photo-1',
+      orgId: 'org-1',
+      episodeId: 'ep-1',
+      patientId: 'pat-1',
+      isLargeWound: false,
+      capturedByUserId: 'user-1',
+      lengthCm: '1',
+      widthCm: '1',
+    });
+    assert.equal(result, null);
+  });
+
+  it('ensureOpenLargeWoundReview is idempotent when open task exists', async () => {
+    process.env.FEATURE_WOUND_PHOTOS = 'true';
+    const { ClinicalTasksService } = await import(
+      '../clinical-tasks/clinical-tasks.service'
+    );
+    const existing = {
+      id: 'task-existing',
+      orgId: 'org-1',
+      episodeId: 'ep-1',
+      patientId: 'pat-1',
+      woundPhotoId: 'photo-1',
+      taskType: 'large_wound_review',
+      status: 'open',
+      priority: 'urgent',
+      title: 'Large wound review',
+      details: null,
+      assigneeUserId: null,
+      createdBy: 'user-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    let inserts = 0;
+    const db = {
+      select() {
+        return {
+          from() {
+            return {
+              where() {
+                return {
+                  limit() {
+                    return Promise.resolve([existing]);
+                  },
+                };
+              },
+            };
+          },
+        };
+      },
+      insert() {
+        inserts += 1;
+        return {
+          values() {
+            return {
+              returning() {
+                return Promise.resolve([existing]);
+              },
+            };
+          },
+        };
+      },
+    } as unknown as HhosDb;
+    const svc = new ClinicalTasksService(db, {
+      write: async () => {},
+      writeFromUser: async () => {},
+    } as unknown as AuditService);
+
+    const a = await svc.ensureOpenLargeWoundReview({
+      id: 'photo-1',
+      orgId: 'org-1',
+      episodeId: 'ep-1',
+      patientId: 'pat-1',
+      isLargeWound: true,
+      capturedByUserId: 'user-1',
+      lengthCm: '12',
+      widthCm: '5',
+    });
+    const b = await svc.ensureOpenLargeWoundReview({
+      id: 'photo-1',
+      orgId: 'org-1',
+      episodeId: 'ep-1',
+      patientId: 'pat-1',
+      isLargeWound: true,
+      capturedByUserId: 'user-1',
+      lengthCm: '12',
+      widthCm: '5',
+    });
+    assert.equal(a?.id, 'task-existing');
+    assert.equal(b?.id, 'task-existing');
+    assert.equal(inserts, 0);
+  });
+});
+
+describe('OrphanGcService', () => {
+  it('tick abandons pending photos past TTL', async () => {
+    process.env.FEATURE_WOUND_PHOTOS = 'true';
+    process.env.PHOTO_ORPHAN_GC_DISABLED = 'true';
+
+    const abandoned = [{ id: 'p-old' }];
+    const db = {
+      select() {
+        return {
+          from() {
+            return Promise.resolve([
+              { id: 'org-1', settings: { photoPendingTtlHours: 24 } },
+            ]);
+          },
+        };
+      },
+      update() {
+        return {
+          set() {
+            return {
+              where() {
+                return {
+                  returning() {
+                    return Promise.resolve(abandoned);
+                  },
+                };
+              },
+            };
+          },
+        };
+      },
+    } as unknown as HhosDb;
+
+    const clinicalTasks = {
+      backfillLargeWoundTasks: async () => 0,
+    } as unknown as ClinicalTasksService;
+
+    const gc = new OrphanGcService(db, clinicalTasks);
+    // onModuleInit skipped by disabled env if called; we call tick directly
+    const res = await gc.tick();
+    assert.equal(res.photosAbandoned, 1);
+    assert.equal(res.annotationsAbandoned, 1);
   });
 });
