@@ -20,6 +20,11 @@ export function isWoundPhotosEnabled(): boolean {
   return featureEnabled('FEATURE_WOUND_PHOTOS', false);
 }
 
+/** Master API switch for OASIS-E2 / PDGM advisory routes. */
+export function isOasisEnabled(): boolean {
+  return featureEnabled('FEATURE_OASIS', false);
+}
+
 /**
  * Geotag env gate (K8 / K26) — fail-closed.
  * Only explicit `true` / `1` enables; unset, empty, or other values = off.

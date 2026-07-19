@@ -1,4 +1,4 @@
-/** Shared domain enums for HHOS Phase 0–2 */
+/** Shared domain enums for HHOS Phase 0–3 */
 
 export const UserStatus = ['active', 'disabled', 'invited'] as const;
 export type UserStatus = (typeof UserStatus)[number];
@@ -286,3 +286,42 @@ export type DevicePlatform = (typeof DevicePlatform)[number];
 
 export const DeviceStatus = ['active', 'revoked'] as const;
 export type DeviceStatus = (typeof DeviceStatus)[number];
+
+// ─── Phase 3: OASIS-E2 / PDGM ───────────────────────────────────────────────
+
+export const OasisTimepoint = [
+  'SOC',
+  'ROC',
+  'FU',
+  'RECERT',
+  'TRANS',
+  'DEATH',
+  'DISCH',
+] as const;
+export type OasisTimepoint = (typeof OasisTimepoint)[number];
+
+export const OasisAssessmentStatus = [
+  'draft',
+  'in_review',
+  'locked',
+  'void',
+] as const;
+export type OasisAssessmentStatus = (typeof OasisAssessmentStatus)[number];
+
+export const OasisFlagCode = [
+  'MISSING_PRIMARY_DX',
+  'THIN_FUNCTIONAL',
+  'SKIN_INCOMPLETE',
+  'COMORBIDITY_SPARSE',
+  'ADMISSION_SOURCE_UNKNOWN',
+  'LUPA_RISK',
+  'DOC_GAP',
+  'TIMELINESS_WARN',
+] as const;
+export type OasisFlagCode = (typeof OasisFlagCode)[number];
+
+/** Pin before production; re-validate against CMS OASIS-E2. */
+export const OASIS_ITEM_SET_VERSION = 'oasis-e2-2026.04-subset-v1' as const;
+
+/** Default advisory LUPA visit threshold (not full HIPPS grouper). */
+export const DEFAULT_LUPA_VISIT_THRESHOLD = 4;

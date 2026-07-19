@@ -35,6 +35,7 @@
 | Session plan (pre-scaffold) | Phase 0/1 ERD, consent engine, OpenAPI sketch |
 | **[Phase 2 — Secure wound photos](./phase-2-secure-wound-photos.md)** | Camera-only capture, envelope crypto, offline outbox, dual S3, consent gates (K16), devices, annotations, clinical tasks |
 | **[Phase 2 KPIs](./phase-2-kpis.md)** | Operational metrics SQL (ids only — no PHI columns) |
+| **[Phase 3 — OASIS-E2 / PDGM](./phase-3-oasis-e2-pdgm.md)** | Versioned item subset, assessment lifecycle, advisory LUPA/PDGM flags, clinical lead lock |
 | `docs/compliance/threat-model-v0.md` | Baseline + photo pipeline threats |
 | `docs/domain/consent-purposes.md` | Purpose codes including `WOUND_PHOTO_CLINICAL` |
 

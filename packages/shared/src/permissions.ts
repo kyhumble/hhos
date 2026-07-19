@@ -27,6 +27,12 @@ export const Permission = {
   CLINICAL_TASK_WRITE: 'clinical_task:write',
   DEVICE_REGISTER: 'device:register',
   DEVICE_REVOKE: 'device:revoke',
+  // Phase 3 — OASIS / PDGM
+  OASIS_READ: 'oasis:read',
+  OASIS_WRITE: 'oasis:write',
+  OASIS_SUBMIT: 'oasis:submit',
+  OASIS_REVIEW: 'oasis:review',
+  OASIS_LOCK: 'oasis:lock',
 } as const;
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission];
@@ -36,7 +42,7 @@ export const ALL_PERMISSIONS: PermissionCode[] = Object.values(Permission);
 const R = Permission;
 
 /**
- * Role → permission map (Phase 1 + Phase 2 wound photos).
+ * Role → permission map (Phase 1–3).
  * K15: billing has NO wound_photo:* (document:read does not grant photo content).
  */
 export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
@@ -52,6 +58,9 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.WOUND_PHOTO_CAPTURE,
     R.WOUND_PHOTO_READ,
     R.DEVICE_REGISTER, // self-register only (enforced in service)
+    R.OASIS_READ,
+    R.OASIS_WRITE,
+    R.OASIS_SUBMIT,
   ],
   intake_coordinator: [
     R.PATIENT_READ,
@@ -69,6 +78,7 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.DOCUMENT_UPLOAD,
     R.DOCUMENT_READ,
     R.DEVICE_REGISTER,
+    R.OASIS_READ,
   ],
   clinical_lead: [
     R.PATIENT_READ,
@@ -92,6 +102,11 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.CLINICAL_TASK_READ,
     R.CLINICAL_TASK_WRITE,
     R.DEVICE_REGISTER,
+    R.OASIS_READ,
+    R.OASIS_WRITE,
+    R.OASIS_SUBMIT,
+    R.OASIS_REVIEW,
+    R.OASIS_LOCK,
   ],
   billing: [
     R.PATIENT_READ,
@@ -101,6 +116,7 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.DOCUMENT_READ,
     // K15: no wound_photo:*; DOCUMENT_READ must never authorize photo content
     R.DEVICE_REGISTER,
+    R.OASIS_READ, // limited fields in service layer later
   ],
   compliance: [
     R.PATIENT_READ,
@@ -115,6 +131,7 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.CLINICAL_TASK_READ,
     R.DEVICE_REGISTER,
     R.DEVICE_REVOKE,
+    R.OASIS_READ,
   ],
   admin: [...ALL_PERMISSIONS],
 };

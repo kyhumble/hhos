@@ -7,3 +7,4 @@ export * from './consents';
 export * from './audit';
 export * from './wounds';
 export * from './devices';
+export * from './oasis';

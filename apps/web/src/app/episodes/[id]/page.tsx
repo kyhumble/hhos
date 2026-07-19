@@ -226,6 +226,41 @@ export default function EpisodeDetailPage() {
           {episode.status} · intake {episode.intakeStatus} · {episode.careType}
           {episode.socDueAt && ` · SOC due ${new Date(episode.socDueAt).toLocaleString()}`}
         </p>
+        <div className="mt-3">
+          <button
+            type="button"
+            className="rounded-lg bg-brand-700 px-3 py-1.5 text-sm text-white hover:bg-brand-900"
+            onClick={async () => {
+              const t = getToken();
+              if (!t) return;
+              setSaving(true);
+              setMsg(null);
+              try {
+                const res = await fetch(`${API_URL}/v1/oasis/assessments`, {
+                  method: 'POST',
+                  headers: {
+                    ...authHeaders(t),
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ episodeId: id, timepoint: 'SOC' }),
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                  setMsg(data.error?.message ?? 'OASIS create failed (is FEATURE_OASIS=true?)');
+                  return;
+                }
+                window.location.href = `/oasis/${data.id}`;
+              } catch {
+                setMsg('API unreachable');
+              } finally {
+                setSaving(false);
+              }
+            }}
+            disabled={saving}
+          >
+            Start SOC OASIS assessment
+          </button>
+        </div>
         <div className="mt-2 flex flex-wrap gap-1">
           {episode.flags.map((f) => (
             <span key={f} className="rounded bg-red-50 px-1.5 py-0.5 text-xs text-red-800">

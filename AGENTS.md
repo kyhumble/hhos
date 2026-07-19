@@ -57,7 +57,8 @@ Compliance is non-negotiable. Treat every change as potentially surveyor-visible
 - **Phase 0:** Bootstrap (this scaffold)
 - **Phase 1:** Intake, consents, SOC tracking, RBAC/audit
 - **Phase 2:** Secure wound photos (offline, encrypt, sync)
-- **Phase 3+:** OASIS-E2, PDGM, AI routing, billing, portals, longevity modules
+- **Phase 3:** OASIS-E2 subset + PDGM/LUPA advisory (FEATURE_OASIS); never auto-lock billing
+- **Phase 4+:** AI routing, billing, portals, longevity modules
 
 ## Security notes for agents
 
