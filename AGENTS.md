@@ -63,7 +63,7 @@ Compliance is non-negotiable. Treat every change as potentially surveyor-visible
 - **Phase 5:** Orders / 485 / physician e-sign (`FEATURE_ORDERS_ESIGN`); never auto-sign; magic-link tokens hashed at rest
 - **Phase 6:** Hospice elections / LOC / benefit periods (`FEATURE_HOSPICE`); cert via Phase 5 packages
 - **Phase 7:** Billing readiness + claim JSON export (`FEATURE_BILLING`); never auto-submit to payers
-- **Phase 8:** Production hardening (RLS, Cognito, BAA go-live). **No longevity** (home health + hospice only).
+- **Phase 8:** Production hardening — `FEATURE_RLS` request-scoped Postgres RLS; go-live checklist in `docs/compliance/go-live-checklist.md`. **No longevity** (home health + hospice only). Prod: `AUTH_PROVIDER=cognito`, no real PHI without BAAs.
 
 ## Security notes for agents
 

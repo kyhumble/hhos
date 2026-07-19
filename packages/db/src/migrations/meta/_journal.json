@@ -57,6 +57,13 @@
       "when": 1784470000000,
       "tag": "0007_phase7_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784480000000,
+      "tag": "0008_phase8_rls",
+      "breakpoints": true
     }
   ]
 }

@@ -42,6 +42,7 @@
 | **[Phase 5 — Orders / 485 e-sign](./phase-5-orders-esign.md)** | POC-485, orders, F2F, hospice cert packages; physician magic-link sign (`FEATURE_ORDERS_ESIGN`) |
 | **[Phase 6 — Hospice](./phase-6-hospice.md)** | Elections, benefit periods, LOC, cert via Phase 5 (`FEATURE_HOSPICE`) |
 | **[Phase 7 — Billing](./phase-7-billing.md)** | Readiness gaps, claim packages, JSON export prep (`FEATURE_BILLING`) |
+| **[Phase 8 — Production hardening](./phase-8-production-hardening.md)** | Postgres RLS, request-scoped org isolation, go-live checklist |
 | `docs/compliance/threat-model-v0.md` | Baseline + photo pipeline threats |
 | `docs/domain/consent-purposes.md` | Purpose codes including `WOUND_PHOTO_CLINICAL` |
 

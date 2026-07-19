@@ -14,9 +14,9 @@ async function bootstrap() {
   const config = new DocumentBuilder()
     .setTitle('HHOS API')
     .setDescription(
-      'Home Health Operating System API. Phase 1: intake, consents, SOC tracking, RBAC/audit. Synthetic data only in non-prod.',
+      'Home Health + Hospice OS API. Multi-tenant with optional Postgres RLS (FEATURE_RLS). Synthetic data only in non-prod.',
     )
-    .setVersion('0.2.0')
+    .setVersion('0.8.0')
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);

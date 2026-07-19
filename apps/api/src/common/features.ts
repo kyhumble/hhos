@@ -80,6 +80,11 @@ export function isBillingEnabled(org?: OrgFeatureSlice): boolean {
   return isFeatureEnabledForOrg('FEATURE_BILLING', org?.features?.billing, false);
 }
 
+/** Postgres RLS request-scoped org isolation (Phase 8). Default off for local dogfood. */
+export function isRlsEnabled(): boolean {
+  return featureEnabled('FEATURE_RLS', false);
+}
+
 /**
  * Geotag env gate (K8 / K26) — fail-closed.
  * Only explicit `true` / `1` enables; unset, empty, or other values = off.

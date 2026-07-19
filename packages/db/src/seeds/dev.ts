@@ -67,6 +67,9 @@ function templateBody(title: string, extra: string): string {
 async function main() {
   const db = createDb();
 
+  // Phase 8 FORCE RLS: seed must bypass org isolation
+  await db.execute(sql`select set_config('app.rls_bypass', 'on', false)`);
+
   console.log('[hhos/db] Seeding synthetic demo data...');
 
   // Org — merge Phase 2 settings on re-seed so PR1-era rows pick up photo/large-wound keys

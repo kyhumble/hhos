@@ -26,7 +26,7 @@
 - [x] Consent template structure with placeholder legal text  
 - [ ] Full RBAC enforcement on all routes (Phase 1)  
 - [ ] Field encryption helpers wired (Phase 1)  
-- [ ] RLS policies applied (Phase 1)  
+- [x] RLS policies + FORCE (Phase 8 migration `0008_phase8_rls`; enable with `FEATURE_RLS=true`)  
 
 ## Phase 2 photo pipeline (pre-pilot)
 
