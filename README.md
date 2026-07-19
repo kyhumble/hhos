@@ -17,6 +17,18 @@ Custom, HIPAA-by-design operating system for mobile wound care agencies.
 See `AGENTS.md` for coding and compliance conventions.  
 See `docs/` for compliance checklists and domain notes.
 
+### Mobile Phase 2: prebuild / dev client (Expo Go unsupported)
+
+Phase 2 field photography needs **native AES-GCM** (`react-native-quick-crypto`) and an app-controlled camera. **Expo Go is not supported** for photo capture builds.
+
+```bash
+pnpm --filter @hhos/mobile exec expo prebuild
+pnpm --filter @hhos/mobile exec expo run:ios   # or run:android
+# or use an EAS development build / custom dev client
+```
+
+Details: [`apps/mobile/README.md`](apps/mobile/README.md). Shell auth, caseload episodes, and consent-purpose cache work with secure store; crypto/camera land in later PRs.
+
 ## Prerequisites
 
 - Node.js 20+

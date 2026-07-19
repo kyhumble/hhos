@@ -5,23 +5,36 @@
   "main": "expo-router/entry",
   "scripts": {
     "dev": "expo start",
+    "prebuild": "expo prebuild",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"no lint configured\"",
-    "test": "echo \"no tests yet\"",
-    "build": "echo \"mobile build via EAS in later phase\""
+    "test": "node --test src/api/client.gate.test.mjs src/crypto/aes-gcm.vectors.test.mjs src/crypto/secure-keys.photo-dek.test.mjs src/camera/camera-uri.test.mjs src/outbox/backoff.test.mjs src/outbox/sync-gate.test.mjs",
+    "build": "echo \"mobile build via EAS / prebuild — Expo Go unsupported for Phase 2 crypto\""
   },
   "dependencies": {
+    "@craftzdog/react-native-buffer": "6.1.0",
     "@hhos/shared": "workspace:*",
     "expo": "~52.0.23",
+    "expo-build-properties": "~0.13.3",
+    "expo-camera": "~16.0.18",
+    "expo-crypto": "~14.0.2",
+    "expo-file-system": "~18.0.12",
+    "expo-image-manipulator": "~13.0.6",
     "expo-router": "~4.0.15",
+    "expo-secure-store": "~14.0.1",
+    "expo-sqlite": "~15.1.4",
     "expo-status-bar": "~2.0.1",
     "react": "18.3.1",
     "react-native": "0.76.5",
+    "react-native-nitro-modules": "0.29.1",
+    "react-native-quick-base64": "2.2.2",
+    "react-native-quick-crypto": "1.0.6",
     "react-native-safe-area-context": "4.12.0",
     "react-native-screens": "~4.4.0"
   },
   "devDependencies": {
-    "@types/react": "~18.3.12",
+    "@types/react": "18.3.18",
     "typescript": "^5.7.2"
-  }
+  },
+  "pnpm": {}
 }
