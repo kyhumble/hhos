@@ -29,6 +29,7 @@ import {
   users,
   visits,
   wounds,
+  clinicianProfiles,
 } from '../schema/index';
 
 const ORG_ID = '00000000-0000-4000-8000-000000000001';
@@ -97,8 +98,8 @@ async function main() {
       },
     });
 
-  // Permissions — re-run this seed after pulling Phase 2+ permission codes so
-  // `permissions` / `role_permissions` pick up wound_photo:*, clinical_task:*, device:*.
+  // Permissions — re-run after Phase 2–4 codes so role_permissions pick up
+  // wound_photo:*, oasis:*, routing:*, visit_task:*, alert:*.
   for (const code of ALL_PERMISSIONS) {
     await db.insert(permissions).values({ code, description: code }).onConflictDoNothing();
   }
@@ -703,6 +704,35 @@ async function main() {
       status: 'in_progress',
       clientVisitId: 'demo-visit-alice-soc-001',
     })
+    .onConflictDoNothing();
+
+  // Phase 4: clinician profiles for routing scorer demos
+  await db
+    .insert(clinicianProfiles)
+    .values([
+      {
+        orgId: ORG_ID,
+        userId: RN_ID,
+        skillsJson: ['wound_care', 'ostomy', 'rural_travel'],
+        languagesJson: ['en'],
+        homeBaseCity: 'Tulsa',
+        homeBaseState: 'OK',
+        homeBasePostal: '74103',
+        maxDailyVisits: 6,
+        activeForRouting: true,
+      },
+      {
+        orgId: ORG_ID,
+        userId: LEAD_ID,
+        skillsJson: ['wound_care', 'iv_therapy', 'behavioral_health'],
+        languagesJson: ['en', 'es'],
+        homeBaseCity: 'Oklahoma City',
+        homeBaseState: 'OK',
+        homeBasePostal: '73102',
+        maxDailyVisits: 4,
+        activeForRouting: true,
+      },
+    ])
     .onConflictDoNothing();
 
   console.log('[hhos/db] Seed complete (synthetic only; no wound photo imagery).');

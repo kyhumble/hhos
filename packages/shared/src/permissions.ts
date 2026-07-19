@@ -33,6 +33,14 @@ export const Permission = {
   OASIS_SUBMIT: 'oasis:submit',
   OASIS_REVIEW: 'oasis:review',
   OASIS_LOCK: 'oasis:lock',
+  // Phase 4 — Service AI / routing / field ops
+  ROUTING_READ: 'routing:read',
+  ROUTING_SUGGEST: 'routing:suggest',
+  ROUTING_DECIDE: 'routing:decide',
+  VISIT_TASK_READ: 'visit_task:read',
+  VISIT_TASK_WRITE: 'visit_task:write',
+  ALERT_READ: 'alert:read',
+  ALERT_WRITE: 'alert:write',
 } as const;
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission];
@@ -61,6 +69,10 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.OASIS_READ,
     R.OASIS_WRITE,
     R.OASIS_SUBMIT,
+    R.VISIT_TASK_READ,
+    R.VISIT_TASK_WRITE,
+    R.ROUTING_READ,
+    R.ALERT_READ,
   ],
   intake_coordinator: [
     R.PATIENT_READ,
@@ -79,6 +91,13 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.DOCUMENT_READ,
     R.DEVICE_REGISTER,
     R.OASIS_READ,
+    R.ROUTING_READ,
+    R.ROUTING_SUGGEST,
+    R.ROUTING_DECIDE,
+    R.VISIT_TASK_READ,
+    R.VISIT_TASK_WRITE,
+    R.ALERT_READ,
+    R.ALERT_WRITE,
   ],
   clinical_lead: [
     R.PATIENT_READ,
@@ -107,6 +126,13 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.OASIS_SUBMIT,
     R.OASIS_REVIEW,
     R.OASIS_LOCK,
+    R.ROUTING_READ,
+    R.ROUTING_SUGGEST,
+    R.ROUTING_DECIDE,
+    R.VISIT_TASK_READ,
+    R.VISIT_TASK_WRITE,
+    R.ALERT_READ,
+    R.ALERT_WRITE,
   ],
   billing: [
     R.PATIENT_READ,
@@ -117,6 +143,9 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     // K15: no wound_photo:*; DOCUMENT_READ must never authorize photo content
     R.DEVICE_REGISTER,
     R.OASIS_READ, // limited fields in service layer later
+    R.ROUTING_READ,
+    R.VISIT_TASK_READ,
+    R.ALERT_READ,
   ],
   compliance: [
     R.PATIENT_READ,
@@ -132,6 +161,10 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.DEVICE_REGISTER,
     R.DEVICE_REVOKE,
     R.OASIS_READ,
+    R.ROUTING_READ,
+    R.VISIT_TASK_READ,
+    R.ALERT_READ,
+    R.ALERT_WRITE,
   ],
   admin: [...ALL_PERMISSIONS],
 };

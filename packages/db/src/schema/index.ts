@@ -8,3 +8,4 @@ export * from './audit';
 export * from './wounds';
 export * from './devices';
 export * from './oasis';
+export * from './ops';

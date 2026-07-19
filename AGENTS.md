@@ -58,7 +58,8 @@ Compliance is non-negotiable. Treat every change as potentially surveyor-visible
 - **Phase 1:** Intake, consents, SOC tracking, RBAC/audit
 - **Phase 2:** Secure wound photos (offline, encrypt, sync)
 - **Phase 3:** OASIS-E2 subset + PDGM/LUPA advisory (FEATURE_OASIS); never auto-lock billing
-- **Phase 4+:** AI routing, billing, portals, longevity modules
+- **Phase 4:** Service AI routing HITL only (FEATURE_SERVICE_AI); never auto-assign without accept
+- **Phase 5+:** Billing, portals, longevity modules
 
 ## Security notes for agents
 

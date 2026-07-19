@@ -325,3 +325,67 @@ export const OASIS_ITEM_SET_VERSION = 'oasis-e2-2026.04-subset-v1' as const;
 
 /** Default advisory LUPA visit threshold (not full HIPPS grouper). */
 export const DEFAULT_LUPA_VISIT_THRESHOLD = 4;
+
+// ─── Phase 4: routing / Service AI / field ops ──────────────────────────────
+
+export const ClinicianSkill = [
+  'wound_care',
+  'ostomy',
+  'iv_therapy',
+  'behavioral_health',
+  'pediatric',
+  'bilingual_es',
+  'rural_travel',
+] as const;
+export type ClinicianSkill = (typeof ClinicianSkill)[number];
+
+export const RouteSuggestionStatus = [
+  'pending',
+  'accepted',
+  'rejected',
+  'superseded',
+  'expired',
+] as const;
+export type RouteSuggestionStatus = (typeof RouteSuggestionStatus)[number];
+
+export const RouteDecisionReason = [
+  'best_match',
+  'geography',
+  'skills',
+  'language',
+  'caseload',
+  'patient_request',
+  'clinical_judgment',
+  'capacity',
+  'other',
+] as const;
+export type RouteDecisionReason = (typeof RouteDecisionReason)[number];
+
+export const VisitTaskType = [
+  'soc_visit',
+  'skilled_visit',
+  'wound_reassessment',
+  'oasis_followup',
+  'supply_drop',
+  'hospitalization_followup',
+  'other',
+] as const;
+export type VisitTaskType = (typeof VisitTaskType)[number];
+
+export const VisitTaskStatus = [
+  'open',
+  'scheduled',
+  'in_progress',
+  'completed',
+  'cancelled',
+] as const;
+export type VisitTaskStatus = (typeof VisitTaskStatus)[number];
+
+export const HospitalizationAlertStatus = [
+  'new',
+  'acknowledged',
+  'in_progress',
+  'resolved',
+  'false_positive',
+] as const;
+export type HospitalizationAlertStatus = (typeof HospitalizationAlertStatus)[number];

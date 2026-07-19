@@ -19,10 +19,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </div>
                 <div>
                   <div className="text-sm font-semibold tracking-tight">HHOS</div>
-                  <div className="text-xs text-slate-500">Phase 3 · Synthetic data only</div>
+                  <div className="text-xs text-slate-500">Phase 4 · Synthetic data only</div>
                 </div>
               </div>
-              <nav className="flex gap-4 text-sm text-slate-600">
+              <nav className="flex flex-wrap gap-3 text-sm text-slate-600">
                 <a className="hover:text-brand-700" href="/">
                   Dashboard
                 </a>
@@ -32,8 +32,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <a className="hover:text-brand-700" href="/oasis">
                   OASIS
                 </a>
+                <a className="hover:text-brand-700" href="/routing">
+                  Routing
+                </a>
+                <a className="hover:text-brand-700" href="/field-tasks">
+                  Field tasks
+                </a>
                 <a className="hover:text-brand-700" href="/tasks">
-                  Tasks
+                  Clinical tasks
                 </a>
                 <a className="hover:text-brand-700" href="/login">
                   Login

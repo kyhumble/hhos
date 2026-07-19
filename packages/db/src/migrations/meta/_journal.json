@@ -22,6 +22,13 @@
       "when": 1784420000000,
       "tag": "0002_phase3_oasis",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784430000000,
+      "tag": "0003_phase4_ops",
+      "breakpoints": true
     }
   ]
 }

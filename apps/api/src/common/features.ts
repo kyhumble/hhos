@@ -25,6 +25,11 @@ export function isOasisEnabled(): boolean {
   return featureEnabled('FEATURE_OASIS', false);
 }
 
+/** Master switch for Service AI routing / visit tasks / hospitalization alerts. */
+export function isServiceAiEnabled(): boolean {
+  return featureEnabled('FEATURE_SERVICE_AI', false);
+}
+
 /**
  * Geotag env gate (K8 / K26) — fail-closed.
  * Only explicit `true` / `1` enables; unset, empty, or other values = off.

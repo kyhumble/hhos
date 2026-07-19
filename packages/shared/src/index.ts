@@ -10,3 +10,4 @@ export * from './photo-crypto-vectors';
 export * from './oasis-e2-items';
 export * from './oasis';
 export * from './pdgm';
+export * from './routing';

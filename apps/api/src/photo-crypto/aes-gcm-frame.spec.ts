@@ -53,7 +53,7 @@ describe('aes-gcm framing (PHOTO_CRYPTO_VECTORS)', () => {
     const vector = PHOTO_CRYPTO_VECTORS[1]!;
     const key = Buffer.from(vector.keyHex, 'hex');
     const framed = Buffer.from(vector.framedHex, 'hex');
-    framed[framed.length - 1] ^= 0xff;
+    framed[framed.length - 1]! ^= 0xff;
     assert.throws(() => aesGcmDecrypt(framed, key));
   });
 });
