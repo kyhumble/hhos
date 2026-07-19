@@ -13,6 +13,7 @@ export type OrgFeatureSlice = {
     serviceAi?: boolean;
     ordersEsign?: boolean;
     hospice?: boolean;
+    billing?: boolean;
   };
 } | null | undefined;
 
@@ -72,6 +73,11 @@ export function isOrdersEsignEnabled(org?: OrgFeatureSlice): boolean {
 /** Hospice elections, LOC, benefit periods. */
 export function isHospiceEnabled(org?: OrgFeatureSlice): boolean {
   return isFeatureEnabledForOrg('FEATURE_HOSPICE', org?.features?.hospice, false);
+}
+
+/** Billing readiness and claim export packages. */
+export function isBillingEnabled(org?: OrgFeatureSlice): boolean {
+  return isFeatureEnabledForOrg('FEATURE_BILLING', org?.features?.billing, false);
 }
 
 /**

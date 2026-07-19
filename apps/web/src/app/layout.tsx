@@ -44,6 +44,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <a className="hover:text-brand-700" href="/hospice">
                   Hospice
                 </a>
+                <a className="hover:text-brand-700" href="/billing">
+                  Billing
+                </a>
                 <a className="hover:text-brand-700" href="/tasks">
                   Clinical tasks
                 </a>

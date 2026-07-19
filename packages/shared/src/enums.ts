@@ -455,3 +455,46 @@ export type HospiceLevelOfCare = (typeof HospiceLevelOfCare)[number];
 
 export const HospiceBenefitPeriodStatus = ['open', 'closed'] as const;
 export type HospiceBenefitPeriodStatus = (typeof HospiceBenefitPeriodStatus)[number];
+
+// ─── Phase 7: billing readiness / claim export ──────────────────────────────
+
+export const BillingClaimType = [
+  'hh_rap',
+  'hh_final',
+  'hospice_noe',
+  'hospice_claim',
+  'other',
+] as const;
+export type BillingClaimType = (typeof BillingClaimType)[number];
+
+export const BillingClaimStatus = [
+  'draft',
+  'ready',
+  'blocked',
+  'exported',
+  'submitted_external',
+  'void',
+] as const;
+export type BillingClaimStatus = (typeof BillingClaimStatus)[number];
+
+/** Hard blocks prevent ready/export; soft are warnings. */
+export const BillingGapSeverity = ['hard', 'soft'] as const;
+export type BillingGapSeverity = (typeof BillingGapSeverity)[number];
+
+export const BillingGapCode = [
+  'MISSING_PRIMARY_DX',
+  'ORDERS_UNSIGNED',
+  'POC_UNSIGNED',
+  'F2F_INCOMPLETE',
+  'COVERAGE_MISSING',
+  'COVERAGE_UNVERIFIED',
+  'INTAKE_INCOMPLETE',
+  'OASIS_NOT_LOCKED',
+  'HOSPICE_ELECTION_INACTIVE',
+  'HOSPICE_CERT_UNSIGNED',
+  'HOSPICE_TERMINAL_DX_MISSING',
+  'EPISODE_NOT_ACTIVE',
+] as const;
+export type BillingGapCode = (typeof BillingGapCode)[number];
+
+export const BILLING_EXPORT_FORMAT = 'hhos-claim-export-v1' as const;

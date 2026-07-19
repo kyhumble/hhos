@@ -48,6 +48,10 @@ export const Permission = {
   // Phase 6 — hospice
   HOSPICE_READ: 'hospice:read',
   HOSPICE_WRITE: 'hospice:write',
+  // Phase 7 — billing readiness / export
+  BILLING_READ: 'billing:read',
+  BILLING_WRITE: 'billing:write',
+  BILLING_EXPORT: 'billing:export',
 } as const;
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission];
@@ -83,6 +87,7 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.ORDER_READ,
     R.HOSPICE_READ,
     R.HOSPICE_WRITE,
+    R.BILLING_READ,
   ],
   intake_coordinator: [
     R.PATIENT_READ,
@@ -113,6 +118,7 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.ORDER_SEND,
     R.HOSPICE_READ,
     R.HOSPICE_WRITE,
+    R.BILLING_READ,
   ],
   clinical_lead: [
     R.PATIENT_READ,
@@ -153,6 +159,7 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.ORDER_SEND,
     R.HOSPICE_READ,
     R.HOSPICE_WRITE,
+    R.BILLING_READ,
   ],
   billing: [
     R.PATIENT_READ,
@@ -168,6 +175,9 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.ALERT_READ,
     R.ORDER_READ,
     R.HOSPICE_READ,
+    R.BILLING_READ,
+    R.BILLING_WRITE,
+    R.BILLING_EXPORT,
   ],
   compliance: [
     R.PATIENT_READ,
@@ -189,6 +199,7 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.ALERT_WRITE,
     R.ORDER_READ,
     R.HOSPICE_READ,
+    R.BILLING_READ,
   ],
   admin: [...ALL_PERMISSIONS],
 };

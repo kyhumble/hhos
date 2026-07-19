@@ -12,3 +12,4 @@ export * from './oasis';
 export * from './ops';
 export * from './order-packages';
 export * from './hospice';
+export * from './billing';

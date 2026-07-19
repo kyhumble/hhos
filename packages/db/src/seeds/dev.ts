@@ -38,6 +38,7 @@ const RN_ID = '00000000-0000-4000-8000-000000000012';
 const LEAD_ID = '00000000-0000-4000-8000-000000000013';
 const COMPLIANCE_ID = '00000000-0000-4000-8000-000000000014';
 const ADMIN_ID = '00000000-0000-4000-8000-000000000015';
+const BILLING_ID = '00000000-0000-4000-8000-000000000016';
 
 const PATIENT_ALICE = '00000000-0000-4000-8000-000000000021';
 const PATIENT_BRUNO = '00000000-0000-4000-8000-000000000022';
@@ -89,6 +90,7 @@ async function main() {
       serviceAi: true,
       ordersEsign: true,
       hospice: true,
+      billing: true,
     },
   };
 
@@ -160,6 +162,12 @@ async function main() {
       email: 'admin@demo.local',
       fullName: 'Avery Admin',
       roleId: roleDefs[5]!.id,
+    },
+    {
+      id: BILLING_ID,
+      email: 'billing@demo.local',
+      fullName: 'Blair Billing',
+      roleId: roleDefs[4]!.id,
     },
   ] as const;
 
@@ -755,7 +763,7 @@ async function main() {
 
   console.log('[hhos/db] Seed complete (synthetic only; no wound photo imagery).');
   console.log(
-    '[hhos/db] Demo users: admin@demo.local, coord@demo.local, rn@demo.local, lead@demo.local, compliance@demo.local',
+    '[hhos/db] Demo users: admin@demo.local, billing@demo.local, coord@demo.local, rn@demo.local, lead@demo.local, compliance@demo.local',
   );
   console.log('[hhos/db] Demo org slug: demo-agency');
   process.exit(0);
