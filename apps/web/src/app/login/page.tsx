@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { API_URL } from '@/lib/api';
 import { storeSession, type SessionUser } from '@/lib/auth';
@@ -19,6 +19,13 @@ const DEMO = [
 
 const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_PROVIDER ?? 'local';
 
+function safeNextPath(raw: string | null): string {
+  if (!raw) return '/';
+  // Only allow same-origin relative paths
+  if (!raw.startsWith('/') || raw.startsWith('//')) return '/';
+  return raw;
+}
+
 export default function LoginPage() {
   const cognitoMode = AUTH_MODE === 'cognito';
   const [email, setEmail] = useState('coord@demo.local');
@@ -26,7 +33,21 @@ export default function LoginPage() {
   const [orgId, setOrgId] = useState('');
   const [orgChoices, setOrgChoices] = useState<OrgChoice[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [nextPath, setNextPath] = useState('/');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const q = new URLSearchParams(window.location.search);
+    setNextPath(safeNextPath(q.get('next')));
+    const reason = q.get('reason');
+    if (reason === 'session') {
+      setNotice('Your session expired or was invalid. Sign in again to continue.');
+    } else if (reason === 'required') {
+      setNotice('Sign in required to access that page.');
+    }
+  }, []);
 
   async function finishLogin(res: Response, data: Record<string, unknown>) {
     const err = data.error as
@@ -45,8 +66,13 @@ export default function LoginPage() {
       setError(err?.message ?? 'Login failed');
       return;
     }
-    storeSession(data.accessToken as string, data.user as SessionUser);
-    window.location.href = '/';
+    const token = data.accessToken as string;
+    if (!token || typeof token !== 'string') {
+      setError('Login response missing access token');
+      return;
+    }
+    storeSession(token, data.user as SessionUser);
+    window.location.href = nextPath || '/';
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -155,6 +181,12 @@ export default function LoginPage() {
                 : 'Local demo mode — pick a persona. No password required.'}
             </p>
           </div>
+
+          {notice && (
+            <div className="mb-4">
+              <Alert tone="warn">{notice}</Alert>
+            </div>
+          )}
 
           <form
             onSubmit={(e) => void onSubmit(e)}

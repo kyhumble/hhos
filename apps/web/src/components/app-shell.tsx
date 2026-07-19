@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { clearSession, getStoredUser, type SessionUser } from '@/lib/auth';
+import { clearSession, getStoredUser, loadSessionUser, type SessionUser } from '@/lib/auth';
 import { navForUser } from '@/lib/nav';
 import { iconForHref, NavIcon } from '@/lib/nav-icons';
 
@@ -44,7 +44,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/sign/') || pathname === '/login' || pathname === '/invite';
 
   useEffect(() => {
+    // Prefer cached user immediately, then validate token with /v1/me
     setUser(getStoredUser());
+    void loadSessionUser().then((u) => setUser(u));
   }, [pathname]);
 
   useEffect(() => {

@@ -3,7 +3,7 @@
  * Token + user (roles/permissions) from dev-login or GET /v1/me.
  */
 import { Permission, type PermissionCode, type RoleCode } from '@hhos/shared';
-import { API_URL, authHeaders, getToken } from './api';
+import { API_URL, authHeaders, getToken, isAuthError, readApiError } from './api';
 
 export type SessionUser = {
   id: string;
@@ -15,6 +15,7 @@ export type SessionUser = {
 };
 
 const USER_KEY = 'hhos_user';
+const TOKEN_KEY = 'hhos_token';
 
 export function getStoredUser(): SessionUser | null {
   if (typeof window === 'undefined') return null;
@@ -29,14 +30,23 @@ export function getStoredUser(): SessionUser | null {
 
 export function storeSession(token: string, user: SessionUser): void {
   if (typeof window === 'undefined') return;
-  window.localStorage.setItem('hhos_token', token);
+  const clean = token.trim().replace(/^Bearer\s+/i, '');
+  window.localStorage.setItem(TOKEN_KEY, clean);
   window.localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
 export function clearSession(): void {
   if (typeof window === 'undefined') return;
-  window.localStorage.removeItem('hhos_token');
+  window.localStorage.removeItem(TOKEN_KEY);
   window.localStorage.removeItem(USER_KEY);
+}
+
+/** Clear local session and send user to login with a reason banner. */
+export function forceReLogin(reason: 'session' | 'required' = 'session'): void {
+  clearSession();
+  if (typeof window === 'undefined') return;
+  const next = encodeURIComponent(window.location.pathname + window.location.search);
+  window.location.href = `/login?reason=${reason}&next=${next}`;
 }
 
 export function hasPermission(
@@ -74,10 +84,15 @@ export function canUseClinicalContentPath(
 
 /**
  * Load session user: prefer localStorage; refresh from /v1/me when token present.
+ * Clears storage when token is rejected (401).
  */
 export async function loadSessionUser(): Promise<SessionUser | null> {
   const token = getToken();
-  if (!token) return null;
+  if (!token) {
+    // Stale user blob without token
+    if (getStoredUser()) clearSession();
+    return null;
+  }
 
   const cached = getStoredUser();
   try {
@@ -101,3 +116,32 @@ export async function loadSessionUser(): Promise<SessionUser | null> {
     return cached;
   }
 }
+
+/**
+ * If response is 401/expired session, clear and redirect to login.
+ * Returns true when handled (caller should stop).
+ */
+export async function handleIfUnauthorized(res: Response): Promise<boolean> {
+  if (res.status !== 401) return false;
+  const err = await res
+    .clone()
+    .json()
+    .catch(() => ({}));
+  const code =
+    (err as ApiErrorLike)?.error?.code ??
+    (typeof (err as ApiErrorLike)?.message === 'object'
+      ? (err as { message?: { error?: { code?: string } } }).message?.error?.code
+      : undefined);
+  if (isAuthError(res.status, code) || res.status === 401) {
+    forceReLogin('session');
+    return true;
+  }
+  return false;
+}
+
+type ApiErrorLike = {
+  error?: { code?: string; message?: string };
+  message?: string | { error?: { code?: string } };
+};
+
+export { readApiError };
