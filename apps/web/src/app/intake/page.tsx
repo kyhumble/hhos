@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+import { Alert, Badge, EmptyState, PageHeader, statusTone } from '@/components/ui';
+import { API_URL, getToken } from '@/lib/api';
 
 type WorklistItem = {
   id: string;
@@ -20,12 +20,13 @@ type WorklistItem = {
 export default function IntakePage() {
   const [items, setItems] = useState<WorklistItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token =
-      typeof window !== 'undefined' ? window.localStorage.getItem('hhos_token') : null;
+    const token = getToken();
     if (!token) {
-      setError('Not logged in. Use /login with a demo account first.');
+      setError('Not logged in. Use Login with a demo account first.');
+      setLoading(false);
       return;
     }
 
@@ -40,83 +41,85 @@ export default function IntakePage() {
         }
         setItems(data.data ?? []);
       })
-      .catch(() => setError('API unreachable'));
+      .catch(() => setError('API unreachable on :3001'))
+      .finally(() => setLoading(false));
   }, []);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold">Intake worklist</h1>
-          <p className="text-sm text-slate-600">
-            Sorted by SOC risk. Open an episode to review checklist and capture consents.
-          </p>
-        </div>
-        <Link
-          href="/patients/new"
-          className="rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-900"
-        >
-          New patient
-        </Link>
-      </div>
+    <div className="ui-page">
+      <PageHeader
+        eyebrow="Clinical"
+        title="Intake worklist"
+        description="Sorted by SOC risk. Open an episode to review checklist and capture consents."
+        actions={
+          <Link href="/patients/new" className="ui-btn-primary">
+            New patient
+          </Link>
+        }
+      />
 
-      {error && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
-          {error}
-        </div>
-      )}
+      {error && <Alert tone="warn">{error}</Alert>}
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <table className="min-w-full text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Patient</th>
-              <th className="px-4 py-3">MRN</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">SOC due</th>
-              <th className="px-4 py-3">Flags</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 && !error && (
+      <div className="ui-table-wrap">
+        {loading ? (
+          <div className="px-4 py-12 text-center text-sm text-ink-500">Loading worklist…</div>
+        ) : (
+          <table className="ui-table">
+            <thead>
               <tr>
-                <td className="px-4 py-6 text-slate-500" colSpan={5}>
-                  No episodes yet. Run <code>pnpm db:seed</code> after migrate.
-                </td>
+                <th>Patient</th>
+                <th>MRN</th>
+                <th>Episode</th>
+                <th>Intake</th>
+                <th>SOC due</th>
+                <th>Flags</th>
               </tr>
-            )}
-            {items.map((item) => (
-              <tr key={item.id} className="border-t border-slate-100 hover:bg-slate-50">
-                <td className="px-4 py-3 font-medium">
-                  <Link className="text-brand-700 hover:underline" href={`/episodes/${item.id}`}>
-                    {item.patientLastName}, {item.patientFirstName}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-slate-600">{item.mrn}</td>
-                <td className="px-4 py-3">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">
-                    {item.intakeStatus}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-slate-600">
-                  {item.socDueAt ? new Date(item.socDueAt).toLocaleString() : '—'}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1">
-                    {item.flags.map((f) => (
-                      <span
-                        key={f}
-                        className="rounded bg-red-50 px-1.5 py-0.5 text-xs text-red-800"
-                      >
-                        {f}
-                      </span>
-                    ))}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id}>
+                  <td>
+                    <Link href={`/episodes/${item.id}`} className="ui-link font-semibold">
+                      {item.patientLastName}, {item.patientFirstName}
+                    </Link>
+                  </td>
+                  <td className="font-mono text-xs text-ink-500">{item.mrn}</td>
+                  <td>
+                    <Badge tone={statusTone(item.status)}>{item.status}</Badge>
+                  </td>
+                  <td>
+                    <Badge tone={statusTone(item.intakeStatus)}>{item.intakeStatus}</Badge>
+                  </td>
+                  <td className="text-xs text-ink-600">
+                    {item.socDueAt ? new Date(item.socDueAt).toLocaleString() : '—'}
+                  </td>
+                  <td>
+                    <div className="flex flex-wrap gap-1">
+                      {(item.flags ?? []).length === 0 && (
+                        <span className="text-xs text-ink-400">—</span>
+                      )}
+                      {(item.flags ?? []).map((f) => (
+                        <Badge key={f} tone="warn">
+                          {f}
+                        </Badge>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {items.length === 0 && !error && (
+                <tr>
+                  <td colSpan={6}>
+                    <EmptyState
+                      title="No intake episodes"
+                      body="Create a patient or accept a referral to populate this list."
+                    />
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

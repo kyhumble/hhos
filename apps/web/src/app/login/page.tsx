@@ -1,18 +1,26 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { API_URL } from '@/lib/api';
 import { storeSession, type SessionUser } from '@/lib/auth';
+import { Alert, Button, Field, Input, Select } from '@/components/ui';
 
 type OrgChoice = { id: string; name: string; slug: string };
 
+const DEMO = [
+  { email: 'admin@demo.local', role: 'Admin' },
+  { email: 'coord@demo.local', role: 'Intake' },
+  { email: 'lead@demo.local', role: 'Clinical lead' },
+  { email: 'billing@demo.local', role: 'Billing' },
+  { email: 'rn@demo.local', role: 'Field RN' },
+  { email: 'compliance@demo.local', role: 'Compliance' },
+];
+
 export default function LoginPage() {
-  const [email, setEmail] = useState('admin@demo.local');
-  const [orgId, setOrgId] = useState<string>('');
+  const [email, setEmail] = useState('coord@demo.local');
+  const [orgId, setOrgId] = useState('');
   const [orgChoices, setOrgChoices] = useState<OrgChoice[]>([]);
-  const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<SessionUser | null>(null);
-  const [orgLabel, setOrgLabel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -32,120 +40,119 @@ export default function LoginPage() {
       const data = await res.json();
       if (res.status === 409 && data.error?.code === 'ORG_SELECTION_REQUIRED') {
         setOrgChoices(data.error.organizations ?? []);
-        setError('Select an organization for this email.');
-        setToken(null);
-        setUser(null);
+        setError('This email is in multiple orgs — pick one.');
         return;
       }
       if (!res.ok || data.error) {
         setError(data.error?.message ?? 'Login failed');
-        setToken(null);
-        setUser(null);
         return;
       }
-      const accessToken = data.accessToken as string;
-      const sessionUser = data.user as SessionUser;
-      setToken(accessToken);
-      setUser(sessionUser);
-      setOrgLabel(
-        data.organization
-          ? `${data.organization.name} (${data.organization.slug})`
-          : sessionUser.orgId,
-      );
-      setOrgChoices([]);
-      storeSession(accessToken, sessionUser);
+      storeSession(data.accessToken as string, data.user as SessionUser);
+      window.location.href = '/';
     } catch {
-      setError('Could not reach API. Is @hhos/api running on :3001?');
+      setError('Could not reach API on :3001. Is @hhos/api running?');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="mx-auto max-w-md space-y-4">
-      <h1 className="text-xl font-semibold">Dev login</h1>
-      <p className="text-sm text-slate-600">
-        Multi-tenant local JWT. Pass org when the same email exists in multiple agencies.
-        Disabled when <code className="rounded bg-slate-100 px-1">AUTH_PROVIDER=cognito</code>.
-      </p>
-      <form onSubmit={onSubmit} className="space-y-3 rounded-xl border border-slate-200 bg-white p-5">
-        <label className="block text-sm font-medium">
-          Demo email
-          <input
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            list="demo-users"
-          />
-        </label>
-        <datalist id="demo-users">
-          <option value="admin@demo.local" />
-          <option value="coord@demo.local" />
-          <option value="rn@demo.local" />
-          <option value="lead@demo.local" />
-          <option value="compliance@demo.local" />
-        </datalist>
-        {orgChoices.length > 0 && (
-          <label className="block text-sm font-medium">
-            Organization
-            <select
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-              value={orgId}
-              onChange={(e) => setOrgId(e.target.value)}
-              required
-            >
-              <option value="">Select…</option>
-              {orgChoices.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name} ({o.slug})
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-900 disabled:opacity-50"
+    <div className="relative flex min-h-screen items-center justify-center px-4 py-12">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-brand-950 via-ink-950 to-brand-900" />
+      <div className="pointer-events-none absolute inset-0 opacity-40">
+        <div className="absolute -left-20 top-20 h-72 w-72 rounded-full bg-brand-500/30 blur-3xl" />
+        <div className="absolute bottom-10 right-10 h-80 w-80 rounded-full bg-sky-400/20 blur-3xl" />
+      </div>
+
+      <div className="relative w-full max-w-md">
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-700 text-lg font-bold text-white shadow-xl shadow-brand-900/40">
+            HH
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">Sign in to HHOS</h1>
+          <p className="mt-2 text-sm text-brand-100/70">
+            Dev JWT only · disabled when AUTH_PROVIDER=cognito
+          </p>
+        </div>
+
+        <form
+          onSubmit={(e) => void onSubmit(e)}
+          className="rounded-2xl border border-white/10 bg-white p-6 shadow-2xl shadow-black/30 sm:p-8"
         >
-          {loading ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
-      <p className="text-xs text-slate-500">
-        New agency?{' '}
-        <a className="underline" href="/onboard">
-          Create organization
-        </a>
-        {' · '}
-        <a className="underline" href="/invite">
-          Accept invite
-        </a>
-      </p>
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-          {error}
-        </div>
-      )}
-      {token && user && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-          Signed in as <strong>{user.fullName}</strong> ({user.roles.join(', ')})
-          {orgLabel && (
-            <>
-              {' '}
-              · <strong>{orgLabel}</strong>
-            </>
+          <Field label="Demo email" hint="No password in local mode">
+            <Input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              list="demo-users"
+              autoComplete="username"
+              required
+            />
+            <datalist id="demo-users">
+              {DEMO.map((d) => (
+                <option key={d.email} value={d.email} />
+              ))}
+            </datalist>
+          </Field>
+
+          {orgChoices.length > 0 && (
+            <div className="mt-4">
+              <Field label="Organization">
+                <Select value={orgId} onChange={(e) => setOrgId(e.target.value)} required>
+                  <option value="">Select…</option>
+                  {orgChoices.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name} ({o.slug})
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
           )}
-          . Open{' '}
-          <a className="underline" href="/admin">
-            Admin
-          </a>
-          ,{' '}
-          <a className="underline" href="/intake">
-            Intake
-          </a>
-          .
-        </div>
-      )}
+
+          {error && (
+            <div className="mt-4">
+              <Alert tone="error">{error}</Alert>
+            </div>
+          )}
+
+          <Button type="submit" className="mt-6 w-full" disabled={loading}>
+            {loading ? 'Signing in…' : 'Sign in'}
+          </Button>
+
+          <div className="mt-6 border-t border-ink-100 pt-5">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-400">
+              Quick pick
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {DEMO.map((d) => (
+                <button
+                  key={d.email}
+                  type="button"
+                  onClick={() => setEmail(d.email)}
+                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+                    email === d.email
+                      ? 'border-brand-300 bg-brand-50 text-brand-800'
+                      : 'border-ink-200 text-ink-600 hover:border-ink-300 hover:bg-ink-50'
+                  }`}
+                >
+                  {d.role}
+                </button>
+              ))}
+            </div>
+          </div>
+        </form>
+
+        <p className="mt-6 text-center text-xs text-brand-100/50">
+          New agency?{' '}
+          <Link href="/onboard" className="font-semibold text-brand-200 hover:text-white">
+            Create organization
+          </Link>
+          {' · '}
+          <Link href="/invite" className="font-semibold text-brand-200 hover:text-white">
+            Accept invite
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

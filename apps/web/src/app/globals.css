@@ -4,8 +4,165 @@
 
 :root {
   color-scheme: light;
+  --sidebar-width: 15.5rem;
+  --surface: #ffffff;
+  --canvas: #f4f6f9;
+  --ring: #1a75f5;
+}
+
+html,
+body {
+  height: 100%;
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply bg-[var(--canvas)] text-ink-900 antialiased font-sans;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 0% -20%, rgba(51, 150, 255, 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(20, 94, 225, 0.05), transparent);
+  background-attachment: fixed;
+}
+
+@layer components {
+  .ui-page {
+    @apply space-y-6;
+  }
+
+  .ui-page-title {
+    @apply text-2xl font-semibold tracking-tight text-ink-950;
+  }
+
+  .ui-page-desc {
+    @apply mt-1 max-w-2xl text-sm leading-relaxed text-ink-500;
+  }
+
+  .ui-card {
+    @apply rounded-2xl border border-ink-200/80 bg-white shadow-soft;
+  }
+
+  .ui-card-pad {
+    @apply ui-card p-5 sm:p-6;
+  }
+
+  .ui-label {
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500;
+  }
+
+  .ui-input {
+    @apply w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-900
+      shadow-sm outline-none transition
+      placeholder:text-ink-400
+      focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20;
+  }
+
+  .ui-select {
+    @apply ui-input appearance-none bg-[length:1rem] bg-[right_0.75rem_center] bg-no-repeat pr-10;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2366768e'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+  }
+
+  .ui-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold
+      transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40
+      disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .ui-btn-primary {
+    @apply ui-btn bg-brand-700 text-white shadow-sm hover:bg-brand-800 active:bg-brand-900;
+  }
+
+  .ui-btn-secondary {
+    @apply ui-btn border border-ink-200 bg-white text-ink-800 shadow-sm hover:bg-ink-50 hover:border-ink-300;
+  }
+
+  .ui-btn-ghost {
+    @apply ui-btn text-ink-600 hover:bg-ink-100/80 hover:text-ink-900;
+  }
+
+  .ui-btn-danger {
+    @apply ui-btn bg-red-700 text-white hover:bg-red-800;
+  }
+
+  .ui-btn-sm {
+    @apply px-2.5 py-1.5 text-xs;
+  }
+
+  .ui-badge {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide;
+  }
+
+  .ui-badge-neutral {
+    @apply ui-badge bg-ink-100 text-ink-700;
+  }
+
+  .ui-badge-brand {
+    @apply ui-badge bg-brand-100 text-brand-800;
+  }
+
+  .ui-badge-success {
+    @apply ui-badge bg-emerald-100 text-emerald-800;
+  }
+
+  .ui-badge-warn {
+    @apply ui-badge bg-amber-100 text-amber-900;
+  }
+
+  .ui-badge-danger {
+    @apply ui-badge bg-red-100 text-red-800;
+  }
+
+  .ui-alert {
+    @apply rounded-xl border px-4 py-3 text-sm leading-relaxed;
+  }
+
+  .ui-alert-info {
+    @apply ui-alert border-brand-200 bg-brand-50 text-brand-950;
+  }
+
+  .ui-alert-warn {
+    @apply ui-alert border-amber-200 bg-amber-50 text-amber-950;
+  }
+
+  .ui-alert-error {
+    @apply ui-alert border-red-200 bg-red-50 text-red-900;
+  }
+
+  .ui-alert-success {
+    @apply ui-alert border-emerald-200 bg-emerald-50 text-emerald-950;
+  }
+
+  .ui-table-wrap {
+    @apply ui-card overflow-hidden;
+  }
+
+  .ui-table {
+    @apply min-w-full text-left text-sm;
+  }
+
+  .ui-table thead {
+    @apply bg-ink-50/90 text-[11px] font-semibold uppercase tracking-wider text-ink-500;
+  }
+
+  .ui-table th {
+    @apply px-4 py-3;
+  }
+
+  .ui-table tbody tr {
+    @apply border-t border-ink-100 transition hover:bg-brand-50/40;
+  }
+
+  .ui-table td {
+    @apply px-4 py-3 text-ink-800;
+  }
+
+  .ui-section-title {
+    @apply text-sm font-semibold text-ink-900;
+  }
+
+  .ui-muted {
+    @apply text-sm text-ink-500;
+  }
+
+  .ui-link {
+    @apply font-medium text-brand-700 underline-offset-2 hover:text-brand-800 hover:underline;
+  }
 }

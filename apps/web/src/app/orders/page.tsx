@@ -1,6 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  PageHeader,
+  Select,
+  statusTone,
+} from '@/components/ui';
 import { getToken } from '@/lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -73,7 +85,6 @@ export default function OrdersPage() {
       setError(data.error?.message ?? 'Create failed');
       return;
     }
-    // Dev: mark ready without PDF so send works without S3 PUT dance
     const readyRes = await fetch(`${API_URL}/v1/order-packages/${data.id}/mark-ready`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
@@ -83,7 +94,7 @@ export default function OrdersPage() {
       setError(r.error?.message ?? 'mark-ready failed');
       return;
     }
-    setMsg(`Created package ${data.id.slice(0, 8)}… — marked ready (stub PDF for demo).`);
+    setMsg(`Created package — marked ready (demo stub PDF).`);
     await load();
   }
 
@@ -106,7 +117,7 @@ export default function OrdersPage() {
       return;
     }
     setSignUrl(data.signUrl ?? null);
-    setMsg('Sent for signature — copy link to provider (email delivery TBD).');
+    setMsg('Sent for signature — share the link with the physician (email TBD).');
     await load();
   }
 
@@ -129,132 +140,136 @@ export default function OrdersPage() {
       setError(data.error?.message ?? 'External sign failed');
       return;
     }
-    setMsg('External signature recorded (wet-ink / fax path).');
+    setMsg('External signature recorded.');
     await load();
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold">Orders & 485 signatures</h1>
-        <p className="text-sm text-slate-600">
-          Phase 5 — get physician signatures so episodes stay billing-compliant. HITL only; never
-          auto-sign.
-        </p>
-      </div>
+    <div className="ui-page">
+      <PageHeader
+        eyebrow="Compliance"
+        title="Orders & 485 signatures"
+        description="Create packages, send secure sign links, or record wet-ink. Never auto-sign."
+      />
 
-      {error && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">{error}</div>
-      )}
-      {msg && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">{msg}</div>
-      )}
+      {error && <Alert tone="warn">{error}</Alert>}
+      {msg && <Alert tone="info">{msg}</Alert>}
       {signUrl && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm break-all">
+        <Alert tone="success">
           Provider sign link:{' '}
-          <a className="underline text-brand-700" href={signUrl} target="_blank" rel="noreferrer">
+          <a className="ui-link break-all" href={signUrl} target="_blank" rel="noreferrer">
             {signUrl}
           </a>
-        </div>
+        </Alert>
       )}
 
-      <form onSubmit={(e) => void createPackage(e)} className="rounded-xl border bg-white p-4 space-y-2">
-        <h2 className="text-sm font-semibold">New order / 485 package</h2>
-        <input
-          className="w-full rounded border px-3 py-2 text-xs font-mono"
-          value={form.episodeId}
-          onChange={(e) => setForm((f) => ({ ...f, episodeId: e.target.value }))}
-          placeholder="episodeId"
-          required
-        />
-        <select
-          className="w-full rounded border px-3 py-2 text-sm"
-          value={form.docType}
-          onChange={(e) => setForm((f) => ({ ...f, docType: e.target.value }))}
-        >
-          <option value="plan_of_care_485">plan_of_care_485 (CMS-485)</option>
-          <option value="physician_order">physician_order</option>
-          <option value="verbal_order">verbal_order</option>
-          <option value="f2f_encounter">f2f_encounter</option>
-          <option value="hospice_cert">hospice_cert</option>
-          <option value="hospice_recert">hospice_recert</option>
-        </select>
-        <input
-          className="w-full rounded border px-3 py-2 text-sm"
-          value={form.title}
-          onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-        />
-        <input
-          className="w-full rounded border px-3 py-2 text-sm"
-          value={form.physicianName}
-          onChange={(e) => setForm((f) => ({ ...f, physicianName: e.target.value }))}
-          placeholder="Physician name"
-        />
-        <input
-          className="w-full rounded border px-3 py-2 text-sm"
-          value={form.physicianEmail}
-          onChange={(e) => setForm((f) => ({ ...f, physicianEmail: e.target.value }))}
-          placeholder="Physician email"
-        />
-        <button type="submit" className="rounded-lg bg-brand-700 px-3 py-2 text-sm text-white">
-          Create & mark ready
-        </button>
-      </form>
+      <div className="grid gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-2">
+          <h2 className="ui-section-title mb-4">New package</h2>
+          <form onSubmit={(e) => void createPackage(e)} className="space-y-3">
+            <Field label="Episode ID">
+              <Input
+                className="font-mono text-xs"
+                value={form.episodeId}
+                onChange={(e) => setForm((f) => ({ ...f, episodeId: e.target.value }))}
+                required
+              />
+            </Field>
+            <Field label="Document type">
+              <Select
+                value={form.docType}
+                onChange={(e) => setForm((f) => ({ ...f, docType: e.target.value }))}
+              >
+                <option value="plan_of_care_485">CMS-485 / Plan of care</option>
+                <option value="physician_order">Physician order</option>
+                <option value="verbal_order">Verbal order</option>
+                <option value="f2f_encounter">Face-to-face</option>
+                <option value="hospice_cert">Hospice cert</option>
+                <option value="hospice_recert">Hospice recert</option>
+              </Select>
+            </Field>
+            <Field label="Title">
+              <Input
+                value={form.title}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+              />
+            </Field>
+            <Field label="Physician">
+              <Input
+                value={form.physicianName}
+                onChange={(e) => setForm((f) => ({ ...f, physicianName: e.target.value }))}
+              />
+            </Field>
+            <Field label="Physician email">
+              <Input
+                type="email"
+                value={form.physicianEmail}
+                onChange={(e) => setForm((f) => ({ ...f, physicianEmail: e.target.value }))}
+              />
+            </Field>
+            <Button type="submit" className="w-full">
+              Create & mark ready
+            </Button>
+          </form>
+        </Card>
 
-      <div className="rounded-xl border bg-white overflow-hidden">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-            <tr>
-              <th className="px-3 py-2 text-left">Title</th>
-              <th className="px-3 py-2 text-left">Type</th>
-              <th className="px-3 py-2 text-left">Physician</th>
-              <th className="px-3 py-2 text-left">Status</th>
-              <th className="px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((p) => (
-              <tr key={p.id} className="border-t">
-                <td className="px-3 py-2">
-                  {p.title}
-                  {p.overdue && (
-                    <span className="ml-2 text-xs text-red-600 font-medium">OVERDUE</span>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-xs">{p.docType}</td>
-                <td className="px-3 py-2">{p.physicianName}</td>
-                <td className="px-3 py-2">{p.status}</td>
-                <td className="px-3 py-2 text-right space-x-2">
-                  {['ready', 'sent', 'viewed', 'rejected'].includes(p.status) && (
-                    <button
-                      type="button"
-                      className="text-brand-700 text-xs underline"
-                      onClick={() => void send(p.id)}
-                    >
-                      Send for sign
-                    </button>
-                  )}
-                  {!['signed', 'void'].includes(p.status) && (
-                    <button
-                      type="button"
-                      className="text-slate-600 text-xs underline"
-                      onClick={() => void externalSign(p.id)}
-                    >
-                      Record wet-ink
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 && (
+        <div className="ui-table-wrap lg:col-span-3">
+          <div className="border-b border-ink-100 px-4 py-3">
+            <h2 className="ui-section-title">Open packages</h2>
+          </div>
+          <table className="ui-table">
+            <thead>
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-slate-500">
-                  No open order packages — create a 485 above.
-                </td>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Physician</th>
+                <th>Status</th>
+                <th />
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {items.map((p) => (
+                <tr key={p.id}>
+                  <td>
+                    <div className="font-medium text-ink-900">{p.title}</div>
+                    {p.overdue && (
+                      <span className="text-[11px] font-semibold text-red-600">OVERDUE</span>
+                    )}
+                  </td>
+                  <td className="text-xs text-ink-500">{p.docType}</td>
+                  <td className="text-sm">{p.physicianName}</td>
+                  <td>
+                    <Badge tone={statusTone(p.status)}>{p.status}</Badge>
+                  </td>
+                  <td className="text-right">
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {['ready', 'sent', 'viewed', 'rejected'].includes(p.status) && (
+                        <Button size="sm" variant="secondary" onClick={() => void send(p.id)}>
+                          Send
+                        </Button>
+                      )}
+                      {!['signed', 'void'].includes(p.status) && (
+                        <Button size="sm" variant="ghost" onClick={() => void externalSign(p.id)}>
+                          Wet-ink
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {items.length === 0 && (
+                <tr>
+                  <td colSpan={5}>
+                    <EmptyState
+                      title="No open packages"
+                      body="Create a 485 or order package to chase physician signatures."
+                    />
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

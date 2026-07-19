@@ -1,6 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  PageHeader,
+  statusTone,
+} from '@/components/ui';
 import { getToken } from '@/lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -16,7 +27,6 @@ type Election = {
   currentLoc?: string | null;
   certUnsigned?: boolean;
   episodeId: string;
-  latestCertPackageId?: string | null;
 };
 
 export default function HospicePage() {
@@ -74,7 +84,7 @@ export default function HospicePage() {
       setError(data.error?.message ?? 'Create failed');
       return;
     }
-    setMsg(`Draft election ${data.id.slice(0, 8)}… created (hospice episode linked).`);
+    setMsg('Draft election created with hospice episode.');
     await load();
   }
 
@@ -116,9 +126,7 @@ export default function HospicePage() {
       setError(data.error?.message ?? 'Cert request failed');
       return;
     }
-    setMsg(
-      `Cert package ${data.orderPackage?.id?.slice(0, 8)}… ready — open Orders / 485 to send for e-sign.`,
-    );
+    setMsg('Cert package ready — open Orders / 485 to send for e-sign.');
     await load();
   }
 
@@ -146,143 +154,144 @@ export default function HospicePage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold">Hospice</h1>
-        <p className="text-sm text-slate-600">
-          Phase 6 — elections, benefit periods, levels of care. Physician cert uses Phase 5 e-sign.
-        </p>
-      </div>
+    <div className="ui-page">
+      <PageHeader
+        eyebrow="Hospice"
+        title="Elections & levels of care"
+        description="Benefit elections, LOC changes, and cert packages via physician e-sign."
+      />
 
-      {error && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">{error}</div>
-      )}
-      {msg && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">{msg}</div>
-      )}
+      {error && <Alert tone="warn">{error}</Alert>}
+      {msg && <Alert tone="info">{msg}</Alert>}
 
-      <form onSubmit={(e) => void createElection(e)} className="rounded-xl border bg-white p-4 space-y-2">
-        <h2 className="text-sm font-semibold">New hospice election</h2>
-        <input
-          className="w-full rounded border px-3 py-2 text-xs font-mono"
-          value={form.patientId}
-          onChange={(e) => setForm((f) => ({ ...f, patientId: e.target.value }))}
-          placeholder="patientId"
-          required
-        />
-        <div className="grid grid-cols-2 gap-2">
-          <label className="text-xs">
-            Election date
-            <input
-              type="date"
-              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-              value={form.electionDate}
-              onChange={(e) => setForm((f) => ({ ...f, electionDate: e.target.value }))}
-            />
-          </label>
-          <label className="text-xs">
-            Effective date
-            <input
-              type="date"
-              className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
-              value={form.effectiveDate}
-              onChange={(e) => setForm((f) => ({ ...f, effectiveDate: e.target.value }))}
-            />
-          </label>
-        </div>
-        <input
-          className="w-full rounded border px-3 py-2 text-sm"
-          value={form.attendingPhysicianName}
-          onChange={(e) => setForm((f) => ({ ...f, attendingPhysicianName: e.target.value }))}
-          placeholder="Attending physician"
-        />
-        <input
-          className="w-full rounded border px-3 py-2 text-sm"
-          value={form.terminalDxIcd10}
-          onChange={(e) => setForm((f) => ({ ...f, terminalDxIcd10: e.target.value }))}
-          placeholder="Terminal DX ICD-10"
-        />
-        <button type="submit" className="rounded-lg bg-brand-700 px-3 py-2 text-sm text-white">
-          Create draft election
-        </button>
-      </form>
+      <div className="grid gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-2">
+          <h2 className="ui-section-title mb-4">New election</h2>
+          <form onSubmit={(e) => void createElection(e)} className="space-y-3">
+            <Field label="Patient ID">
+              <Input
+                className="font-mono text-xs"
+                value={form.patientId}
+                onChange={(e) => setForm((f) => ({ ...f, patientId: e.target.value }))}
+                required
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Election date">
+                <Input
+                  type="date"
+                  value={form.electionDate}
+                  onChange={(e) => setForm((f) => ({ ...f, electionDate: e.target.value }))}
+                />
+              </Field>
+              <Field label="Effective">
+                <Input
+                  type="date"
+                  value={form.effectiveDate}
+                  onChange={(e) => setForm((f) => ({ ...f, effectiveDate: e.target.value }))}
+                />
+              </Field>
+            </div>
+            <Field label="Attending physician">
+              <Input
+                value={form.attendingPhysicianName}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, attendingPhysicianName: e.target.value }))
+                }
+              />
+            </Field>
+            <Field label="Terminal DX (ICD-10)">
+              <Input
+                value={form.terminalDxIcd10}
+                onChange={(e) => setForm((f) => ({ ...f, terminalDxIcd10: e.target.value }))}
+              />
+            </Field>
+            <Button type="submit" className="w-full">
+              Create draft election
+            </Button>
+          </form>
+        </Card>
 
-      <div className="rounded-xl border bg-white overflow-hidden">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-            <tr>
-              <th className="px-3 py-2 text-left">Patient</th>
-              <th className="px-3 py-2 text-left">Status</th>
-              <th className="px-3 py-2 text-left">LOC</th>
-              <th className="px-3 py-2 text-left">Cert</th>
-              <th className="px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((e) => (
-              <tr key={e.id} className="border-t">
-                <td className="px-3 py-2">
-                  {e.patientName ?? e.id.slice(0, 8)}
-                  <div className="text-xs text-slate-500">{e.attendingPhysicianName}</div>
-                </td>
-                <td className="px-3 py-2">{e.status}</td>
-                <td className="px-3 py-2">{e.currentLoc ?? '—'}</td>
-                <td className="px-3 py-2">
-                  {e.certUnsigned ? (
-                    <span className="text-amber-700 text-xs font-medium">Unsigned / missing</span>
-                  ) : (
-                    <span className="text-emerald-700 text-xs">OK / linked</span>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-right space-x-2 whitespace-nowrap">
-                  {e.status === 'draft' && (
-                    <button
-                      type="button"
-                      className="text-brand-700 text-xs underline"
-                      onClick={() => void activate(e.id)}
-                    >
-                      Activate
-                    </button>
-                  )}
-                  {(e.status === 'draft' || e.status === 'active') && (
-                    <button
-                      type="button"
-                      className="text-brand-700 text-xs underline"
-                      onClick={() => void requestCert(e.id)}
-                    >
-                      Request cert
-                    </button>
-                  )}
-                  {e.status === 'active' && (
-                    <>
-                      <button
-                        type="button"
-                        className="text-slate-600 text-xs underline"
-                        onClick={() => void changeLoc(e.id, 'continuous')}
-                      >
-                        → continuous
-                      </button>
-                      <button
-                        type="button"
-                        className="text-slate-600 text-xs underline"
-                        onClick={() => void changeLoc(e.id, 'routine')}
-                      >
-                        → routine
-                      </button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 && (
+        <div className="ui-table-wrap lg:col-span-3">
+          <div className="border-b border-ink-100 px-4 py-3">
+            <h2 className="ui-section-title">Open elections</h2>
+          </div>
+          <table className="ui-table">
+            <thead>
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-slate-500">
-                  No open hospice elections
-                </td>
+                <th>Patient</th>
+                <th>Status</th>
+                <th>LOC</th>
+                <th>Cert</th>
+                <th />
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {items.map((e) => (
+                <tr key={e.id}>
+                  <td>
+                    <div className="font-medium">{e.patientName ?? e.id.slice(0, 8)}</div>
+                    <div className="text-xs text-ink-500">{e.attendingPhysicianName}</div>
+                  </td>
+                  <td>
+                    <Badge tone={statusTone(e.status)}>{e.status}</Badge>
+                  </td>
+                  <td className="text-sm">{e.currentLoc ?? '—'}</td>
+                  <td>
+                    {e.certUnsigned ? (
+                      <Badge tone="warn">Unsigned</Badge>
+                    ) : (
+                      <Badge tone="success">Linked</Badge>
+                    )}
+                  </td>
+                  <td className="text-right">
+                    <div className="flex flex-wrap justify-end gap-1">
+                      {e.status === 'draft' && (
+                        <Button size="sm" onClick={() => void activate(e.id)}>
+                          Activate
+                        </Button>
+                      )}
+                      {(e.status === 'draft' || e.status === 'active') && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => void requestCert(e.id)}
+                        >
+                          Cert
+                        </Button>
+                      )}
+                      {e.status === 'active' && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => void changeLoc(e.id, 'continuous')}
+                          >
+                            Continuous
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => void changeLoc(e.id, 'routine')}
+                          >
+                            Routine
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {items.length === 0 && (
+                <tr>
+                  <td colSpan={5}>
+                    <EmptyState title="No open hospice elections" />
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

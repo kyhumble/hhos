@@ -1,6 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  PageHeader,
+  Select,
+  statusTone,
+} from '@/components/ui';
 import { getToken } from '@/lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -39,7 +51,7 @@ export default function BillingPage() {
 
   async function load() {
     if (!token) {
-      setError('Login as admin or billing@… (billing:read). Use admin@demo.local.');
+      setError('Login as admin or billing@demo.local (billing:read).');
       return;
     }
     const headers = { Authorization: `Bearer ${token}` };
@@ -101,10 +113,10 @@ export default function BillingPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error?.message ?? 'Create claim failed (need billing:write)');
+      setError(data.error?.message ?? 'Create claim failed');
       return;
     }
-    setMsg(`Claim package ${data.id.slice(0, 8)}… status=${data.status}`);
+    setMsg(`Claim package created · status ${data.status}`);
     await load();
   }
 
@@ -116,11 +128,7 @@ export default function BillingPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(
-        data.error?.message ??
-          (data.message as string) ??
-          'Export blocked — resolve hard gaps (signatures)',
-      );
+      setError(data.error?.message ?? 'Export blocked — resolve hard gaps first');
       setDetail(JSON.stringify(data.error ?? data, null, 2));
       return;
     }
@@ -130,147 +138,139 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold">Billing readiness</h1>
-        <p className="text-sm text-slate-600">
-          Phase 7 — what blocks clean claims, then JSON export for external billing. No live EDI
-          submit.
-        </p>
-      </div>
+    <div className="ui-page">
+      <PageHeader
+        eyebrow="Revenue"
+        title="Billing readiness"
+        description="See what blocks clean claims, then export JSON for your clearinghouse. No live EDI submit."
+      />
 
-      {error && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">{error}</div>
-      )}
-      {msg && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">{msg}</div>
-      )}
+      {error && <Alert tone="warn">{error}</Alert>}
+      {msg && <Alert tone="info">{msg}</Alert>}
 
-      <section className="rounded-xl border bg-white p-4 space-y-2">
-        <h2 className="text-sm font-semibold">Check episode</h2>
-        <input
-          className="w-full rounded border px-3 py-2 text-xs font-mono"
-          value={episodeId}
-          onChange={(e) => setEpisodeId(e.target.value)}
-        />
-        <select
-          className="w-full rounded border px-3 py-2 text-sm"
-          value={claimType}
-          onChange={(e) => setClaimType(e.target.value)}
-        >
-          <option value="hh_rap">hh_rap</option>
-          <option value="hh_final">hh_final</option>
-          <option value="hospice_noe">hospice_noe</option>
-          <option value="hospice_claim">hospice_claim</option>
-        </select>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            className="rounded-lg border px-3 py-2 text-sm"
-            onClick={() => void checkReadiness()}
-          >
-            Run readiness
-          </button>
-          <button
-            type="button"
-            className="rounded-lg bg-brand-700 px-3 py-2 text-sm text-white"
-            onClick={() => void createClaim()}
-          >
-            Create claim package
-          </button>
+      <Card>
+        <h2 className="ui-section-title mb-4">Check episode</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label="Episode ID">
+            <Input
+              className="font-mono text-xs"
+              value={episodeId}
+              onChange={(e) => setEpisodeId(e.target.value)}
+            />
+          </Field>
+          <Field label="Claim type">
+            <Select value={claimType} onChange={(e) => setClaimType(e.target.value)}>
+              <option value="hh_rap">HH RAP</option>
+              <option value="hh_final">HH Final</option>
+              <option value="hospice_noe">Hospice NOE</option>
+              <option value="hospice_claim">Hospice claim</option>
+            </Select>
+          </Field>
+          <div className="flex items-end gap-2 sm:col-span-2">
+            <Button type="button" variant="secondary" onClick={() => void checkReadiness()}>
+              Run readiness
+            </Button>
+            <Button type="button" onClick={() => void createClaim()}>
+              Create claim package
+            </Button>
+          </div>
         </div>
-      </section>
+      </Card>
 
-      <section className="rounded-xl border bg-white overflow-hidden">
-        <h2 className="text-sm font-semibold px-4 py-3 border-b">Episode worklist</h2>
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+      <div className="ui-table-wrap">
+        <div className="border-b border-ink-100 px-4 py-3">
+          <h2 className="ui-section-title">Episode worklist</h2>
+        </div>
+        <table className="ui-table">
+          <thead>
             <tr>
-              <th className="px-3 py-2 text-left">Patient</th>
-              <th className="px-3 py-2 text-left">Care</th>
-              <th className="px-3 py-2 text-left">Ready</th>
-              <th className="px-3 py-2 text-left">Gaps</th>
+              <th>Patient</th>
+              <th>Care</th>
+              <th>Ready</th>
+              <th>Top gaps</th>
             </tr>
           </thead>
           <tbody>
             {work.map((w) => (
-              <tr key={w.episodeId} className="border-t">
-                <td className="px-3 py-2">
-                  {w.patientName}
-                  <div className="text-xs font-mono text-slate-500">{w.episodeId.slice(0, 8)}…</div>
+              <tr key={w.episodeId}>
+                <td>
+                  <div className="font-medium">{w.patientName}</div>
+                  <div className="font-mono text-[11px] text-ink-400">
+                    {w.episodeId.slice(0, 8)}…
+                  </div>
                 </td>
-                <td className="px-3 py-2">{w.careType}</td>
-                <td className="px-3 py-2">
+                <td>
+                  <Badge tone="neutral">{w.careType}</Badge>
+                </td>
+                <td>
                   {w.ready ? (
-                    <span className="text-emerald-700">Yes</span>
+                    <Badge tone="success">Ready</Badge>
                   ) : (
-                    <span className="text-amber-700">No ({w.hardGapCount} hard)</span>
+                    <Badge tone="warn">{w.hardGapCount} hard</Badge>
                   )}
                 </td>
-                <td className="px-3 py-2 text-xs text-slate-600">
+                <td className="text-xs text-ink-500">
                   {(w.topGaps ?? []).map((g) => g.code).join(', ') || '—'}
                 </td>
               </tr>
             ))}
             {work.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-3 py-6 text-slate-500">
-                  No open episodes
+                <td colSpan={4}>
+                  <EmptyState title="No open episodes" />
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-      </section>
+      </div>
 
-      <section className="rounded-xl border bg-white overflow-hidden">
-        <h2 className="text-sm font-semibold px-4 py-3 border-b">Claim packages</h2>
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+      <div className="ui-table-wrap">
+        <div className="border-b border-ink-100 px-4 py-3">
+          <h2 className="ui-section-title">Claim packages</h2>
+        </div>
+        <table className="ui-table">
+          <thead>
             <tr>
-              <th className="px-3 py-2 text-left">Type</th>
-              <th className="px-3 py-2 text-left">Patient</th>
-              <th className="px-3 py-2 text-left">Status</th>
-              <th className="px-3 py-2" />
+              <th>Type</th>
+              <th>Patient</th>
+              <th>Status</th>
+              <th />
             </tr>
           </thead>
           <tbody>
             {claims.map((c) => (
-              <tr key={c.id} className="border-t">
-                <td className="px-3 py-2">{c.claimType}</td>
-                <td className="px-3 py-2">{c.patientName ?? c.episodeId.slice(0, 8)}</td>
-                <td className="px-3 py-2">
-                  {c.status}
+              <tr key={c.id}>
+                <td className="font-medium">{c.claimType}</td>
+                <td>{c.patientName ?? c.episodeId.slice(0, 8)}</td>
+                <td>
+                  <Badge tone={statusTone(c.status)}>{c.status}</Badge>
                   {c.hardGapCount > 0 && (
-                    <span className="text-xs text-amber-700"> · {c.hardGapCount} hard</span>
+                    <span className="ml-2 text-xs text-amber-700">{c.hardGapCount} hard</span>
                   )}
                 </td>
-                <td className="px-3 py-2 text-right">
+                <td className="text-right">
                   {(c.status === 'ready' || c.status === 'exported') && (
-                    <button
-                      type="button"
-                      className="text-brand-700 text-xs underline"
-                      onClick={() => void exportClaim(c.id)}
-                    >
+                    <Button size="sm" variant="secondary" onClick={() => void exportClaim(c.id)}>
                       Export JSON
-                    </button>
+                    </Button>
                   )}
                 </td>
               </tr>
             ))}
             {claims.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-3 py-6 text-slate-500">
-                  No claim packages yet
+                <td colSpan={4}>
+                  <EmptyState title="No claim packages yet" body="Create one from the form above." />
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-      </section>
+      </div>
 
       {detail && (
-        <pre className="rounded-xl border bg-slate-900 text-slate-100 text-xs p-4 overflow-auto max-h-96">
+        <pre className="overflow-auto rounded-2xl border border-ink-800 bg-ink-950 p-4 text-xs leading-relaxed text-brand-100 shadow-card max-h-96">
           {detail}
         </pre>
       )}

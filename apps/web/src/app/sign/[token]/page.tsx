@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { Alert, Button, Field, Input } from '@/components/ui';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
@@ -68,103 +69,95 @@ export default function ProviderSignPage() {
     setDone(data.message ?? 'Recorded');
   }
 
-  if (done) {
-    return (
-      <div className="mx-auto max-w-lg rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-sm">
-        <h1 className="text-lg font-semibold text-emerald-900">Done</h1>
-        <p className="mt-2 text-emerald-800">{done}</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-lg space-y-4">
-      <h1 className="text-xl font-semibold">Provider signature</h1>
-      <p className="text-sm text-slate-600">
-        Secure link for home health / hospice orders and plan of care. Limited patient identifiers
-        only.
-      </p>
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-          {error}
+    <div className="relative flex min-h-screen items-center justify-center px-4 py-12">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-ink-100 via-white to-brand-50" />
+      <div className="relative w-full max-w-lg space-y-4">
+        <div className="text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-700 text-sm font-bold text-white">
+            HH
+          </div>
+          <h1 className="text-xl font-semibold text-ink-950">Provider signature</h1>
+          <p className="mt-1 text-sm text-ink-500">
+            Secure link for orders and plan of care. Limited patient identifiers only.
+          </p>
         </div>
-      )}
-      {peek && (
-        <div className="rounded-xl border bg-white p-5 space-y-3 text-sm">
-          <div>
-            <div className="text-xs uppercase text-slate-500">Agency</div>
-            <div className="font-medium">{peek.organizationName}</div>
+
+        {error && <Alert tone="error">{error}</Alert>}
+
+        {done && (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center shadow-soft">
+            <div className="text-lg font-semibold text-emerald-900">Thank you</div>
+            <p className="mt-2 text-sm text-emerald-800">{done}</p>
           </div>
-          <div>
-            <div className="text-xs uppercase text-slate-500">Document</div>
-            <div className="font-medium">{peek.title}</div>
-            <div className="text-xs text-slate-500">{peek.docType}</div>
-          </div>
-          <div>
-            <div className="text-xs uppercase text-slate-500">Patient (minimal)</div>
-            <div>
-              Initials {peek.patientInitials}
-              {peek.patientDobYear ? ` · YOB ${peek.patientDobYear}` : ''}
-            </div>
-          </div>
-          {peek.noteToPhysician && (
-            <div className="rounded bg-slate-50 p-2 text-slate-700">{peek.noteToPhysician}</div>
-          )}
-          <p className="text-xs text-slate-500">{peek.disclaimer}</p>
-          {!peek.alreadyDecided && (
-            <>
-              <label className="block">
-                Typed legal name
-                <input
-                  className="mt-1 w-full rounded border px-3 py-2"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </label>
-              <label className="block">
-                Credentials
-                <input
-                  className="mt-1 w-full rounded border px-3 py-2"
-                  value={credentials}
-                  onChange={(e) => setCredentials(e.target.value)}
-                />
-              </label>
-              <label className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  checked={attestation}
-                  onChange={(e) => setAttestation(e.target.checked)}
-                  className="mt-1"
-                />
-                <span>
-                  I attest I am the named physician/NPP (or authorized to sign) and that this
-                  electronic signature is intended to be legally binding for this order / plan of
-                  care.
-                </span>
-              </label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="flex-1 rounded-lg bg-emerald-700 px-3 py-2 text-white"
-                  onClick={() => void decide('signed')}
-                >
-                  Sign
-                </button>
-                <button
-                  type="button"
-                  className="flex-1 rounded-lg border border-slate-300 px-3 py-2"
-                  onClick={() => void decide('rejected')}
-                >
-                  Reject
-                </button>
+        )}
+
+        {peek && !done && (
+          <div className="ui-card-pad space-y-4 shadow-card">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <div className="ui-label">Agency</div>
+                <div className="font-semibold text-ink-900">{peek.organizationName}</div>
               </div>
-            </>
-          )}
-          {peek.alreadyDecided && (
-            <div className="text-slate-600">This request was already {peek.status}.</div>
-          )}
-        </div>
-      )}
+              <div>
+                <div className="ui-label">Patient (minimal)</div>
+                <div className="font-semibold text-ink-900">
+                  Initials {peek.patientInitials}
+                  {peek.patientDobYear ? ` · YOB ${peek.patientDobYear}` : ''}
+                </div>
+              </div>
+            </div>
+            <div>
+              <div className="ui-label">Document</div>
+              <div className="font-semibold text-ink-900">{peek.title}</div>
+              <div className="text-xs text-ink-500">{peek.docType}</div>
+            </div>
+            {peek.noteToPhysician && (
+              <div className="rounded-xl bg-ink-50 px-3 py-2 text-sm text-ink-700">
+                {peek.noteToPhysician}
+              </div>
+            )}
+            <p className="text-xs leading-relaxed text-ink-500">{peek.disclaimer}</p>
+
+            {!peek.alreadyDecided ? (
+              <>
+                <Field label="Typed legal name">
+                  <Input value={name} onChange={(e) => setName(e.target.value)} />
+                </Field>
+                <Field label="Credentials">
+                  <Input value={credentials} onChange={(e) => setCredentials(e.target.value)} />
+                </Field>
+                <label className="flex items-start gap-3 rounded-xl border border-ink-200 bg-ink-50/50 p-3 text-sm text-ink-700">
+                  <input
+                    type="checkbox"
+                    checked={attestation}
+                    onChange={(e) => setAttestation(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-ink-300 text-brand-700"
+                  />
+                  <span>
+                    I attest I am the named physician/NPP (or authorized to sign) and that this
+                    electronic signature is legally binding for this order / plan of care.
+                  </span>
+                </label>
+                <div className="flex gap-2">
+                  <Button className="flex-1" onClick={() => void decide('signed')}>
+                    Sign
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    variant="secondary"
+                    onClick={() => void decide('rejected')}
+                  >
+                    Reject
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <Alert tone="info">This request was already {peek.status}.</Alert>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
