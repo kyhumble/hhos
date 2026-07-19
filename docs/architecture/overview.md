@@ -21,11 +21,12 @@
 6. Append-only audit + WORM export (later)  
 7. BAA inventory + incident response  
 
-## Phase 0 defaults
+## Multi-tenant defaults
 
-- Single organization (row-level `org_id` ready for multi-tenant)  
-- Local JWT auth stub; Cognito for production  
-- SOC due window: 48 hours (configurable)  
+- Shared DB with **row-level `org_id`** isolation (see [multi-tenant.md](./multi-tenant.md))  
+- Org bootstrap: `POST /v1/orgs`, invites, per-org settings + feature flags  
+- Local JWT auth stub (email + optional `orgId`); Cognito for production  
+- SOC due window: 48 hours (org-configurable)  
 - Photo geotag: disabled by default  
 
 ## Related design
@@ -37,6 +38,7 @@
 | **[Phase 2 KPIs](./phase-2-kpis.md)** | Operational metrics SQL (ids only — no PHI columns) |
 | **[Phase 3 — OASIS-E2 / PDGM](./phase-3-oasis-e2-pdgm.md)** | Versioned item subset, assessment lifecycle, advisory LUPA/PDGM flags, clinical lead lock |
 | **[Phase 4 — Service AI / routing](./phase-4-service-ai-routing.md)** | HITL route suggestions, visit tasks, hospitalization alerts (`FEATURE_SERVICE_AI`) |
+| **[Multi-tenant](./multi-tenant.md)** | Org create, invites, per-org settings/flags; RLS/KMS still future |
 | `docs/compliance/threat-model-v0.md` | Baseline + photo pipeline threats |
 | `docs/domain/consent-purposes.md` | Purpose codes including `WOUND_PHOTO_CLINICAL` |
 

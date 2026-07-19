@@ -10,6 +10,7 @@ import {
   episodes,
   oasisAssessments,
   oasisItemResponses,
+  organizations,
   type HhosDb,
 } from '@hhos/db';
 import {
@@ -42,12 +43,17 @@ export class OasisService {
     private readonly audit: AuditService,
   ) {}
 
-  private ensureFeature(): void {
-    if (!isOasisEnabled()) {
+  private async ensureFeature(user: AuthUser): Promise<void> {
+    const [org] = await this.db
+      .select({ settings: organizations.settings })
+      .from(organizations)
+      .where(eq(organizations.id, user.orgId))
+      .limit(1);
+    if (!isOasisEnabled(org?.settings as never)) {
       throw new ServiceUnavailableException({
         error: {
           code: 'FEATURE_DISABLED',
-          message: 'FEATURE_OASIS is not enabled',
+          message: 'FEATURE_OASIS is not enabled for this organization',
         },
       });
     }
@@ -82,7 +88,15 @@ export class OasisService {
   }
 
   itemLibrary() {
-    this.ensureFeature();
+    // Item catalog is not PHI; gate only on platform FEATURE_OASIS.
+    if (!isOasisEnabled()) {
+      throw new ServiceUnavailableException({
+        error: {
+          code: 'FEATURE_DISABLED',
+          message: 'FEATURE_OASIS is not enabled',
+        },
+      });
+    }
     return {
       itemSetVersion: OASIS_ITEM_SET_VERSION,
       disclaimer:
@@ -97,7 +111,7 @@ export class OasisService {
     input: CreateOasisAssessmentInput,
     meta: { requestId?: string; ip?: string; userAgent?: string },
   ) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     const ep = await this.assertEpisodeAccess(user, input.episodeId);
 
     const [row] = await this.db
@@ -134,7 +148,7 @@ export class OasisService {
     user: AuthUser,
     query: { status?: OasisAssessmentStatus; episodeId?: string; page: number; pageSize: number },
   ) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     const conditions = [
       eq(oasisAssessments.orgId, user.orgId),
       isNull(oasisAssessments.deletedAt),
@@ -185,7 +199,7 @@ export class OasisService {
   }
 
   async getById(user: AuthUser, id: string) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     const [row] = await this.db
       .select()
       .from(oasisAssessments)
@@ -230,7 +244,7 @@ export class OasisService {
     input: UpsertOasisAnswersInput,
     meta: { requestId?: string; ip?: string; userAgent?: string },
   ) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     const assessment = await this.getById(user, id);
     if (assessment.status === 'locked' || assessment.status === 'void') {
       throw new ForbiddenException({
@@ -351,7 +365,7 @@ export class OasisService {
   }
 
   async validate(user: AuthUser, id: string) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     const assessment = await this.getById(user, id);
     const result = await this.recompute(this.db, id, user.id);
     return {
@@ -369,7 +383,7 @@ export class OasisService {
     note: string | undefined,
     meta: { requestId?: string; ip?: string; userAgent?: string },
   ) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     const assessment = await this.getById(user, id);
     if (assessment.status !== 'draft') {
       throw new ForbiddenException({
@@ -419,7 +433,7 @@ export class OasisService {
     input: ReviewInput,
     meta: { requestId?: string; ip?: string; userAgent?: string },
   ) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     const assessment = await this.getById(user, id);
     if (assessment.status !== 'in_review') {
       throw new ForbiddenException({

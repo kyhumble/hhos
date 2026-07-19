@@ -11,6 +11,7 @@ import {
   clinicianProfiles,
   episodes,
   hospitalizationAlerts,
+  organizations,
   patientAddresses,
   patients,
   routeSuggestions,
@@ -43,12 +44,17 @@ export class OpsService {
     private readonly audit: AuditService,
   ) {}
 
-  private ensureFeature(): void {
-    if (!isServiceAiEnabled()) {
+  private async ensureFeature(user: AuthUser): Promise<void> {
+    const [org] = await this.db
+      .select({ settings: organizations.settings })
+      .from(organizations)
+      .where(eq(organizations.id, user.orgId))
+      .limit(1);
+    if (!isServiceAiEnabled(org?.settings as never)) {
       throw new ServiceUnavailableException({
         error: {
           code: 'FEATURE_DISABLED',
-          message: 'FEATURE_SERVICE_AI is not enabled',
+          message: 'FEATURE_SERVICE_AI is not enabled for this organization',
         },
       });
     }
@@ -89,7 +95,7 @@ export class OpsService {
     input: UpsertClinicianProfileInput,
     meta: { requestId?: string; ip?: string; userAgent?: string },
   ) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     // Only self or admin/lead
     if (
       input.userId !== user.id &&
@@ -154,7 +160,7 @@ export class OpsService {
   }
 
   async listProfiles(user: AuthUser) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     const rows = await this.db
       .select({
         id: clinicianProfiles.id,
@@ -182,7 +188,7 @@ export class OpsService {
     input: GenerateRouteSuggestionsInput,
     meta: { requestId?: string; ip?: string; userAgent?: string },
   ) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     const ep = await this.assertEpisode(user, input.episodeId);
 
     const [patient] = await this.db
@@ -322,7 +328,7 @@ export class OpsService {
   }
 
   async listSuggestions(user: AuthUser, episodeId?: string) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     const conditions = [
       eq(routeSuggestions.orgId, user.orgId),
     ];
@@ -354,7 +360,7 @@ export class OpsService {
     input: DecideRouteSuggestionInput,
     meta: { requestId?: string; ip?: string; userAgent?: string },
   ) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     const [row] = await this.db
       .select()
       .from(routeSuggestions)
@@ -453,7 +459,7 @@ export class OpsService {
     input: CreateVisitTaskInput,
     meta: { requestId?: string; ip?: string; userAgent?: string },
   ) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     const ep = await this.assertEpisode(user, input.episodeId);
     const patientId = input.patientId ?? ep.patientId;
 
@@ -494,7 +500,7 @@ export class OpsService {
     user: AuthUser,
     query: { status?: string; assigneeUserId?: string },
   ) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     const conditions = [
       eq(visitTasks.orgId, user.orgId),
       isNull(visitTasks.deletedAt),
@@ -524,7 +530,7 @@ export class OpsService {
     input: UpdateVisitTaskInput,
     meta: { requestId?: string; ip?: string; userAgent?: string },
   ) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     const [row] = await this.db
       .select()
       .from(visitTasks)
@@ -597,7 +603,7 @@ export class OpsService {
     input: CreateHospitalizationAlertInput,
     meta: { requestId?: string; ip?: string; userAgent?: string },
   ) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     const [patient] = await this.db
       .select()
       .from(patients)
@@ -657,7 +663,7 @@ export class OpsService {
   }
 
   async listAlerts(user: AuthUser, status?: string) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     const conditions = [eq(hospitalizationAlerts.orgId, user.orgId)];
     if (status) {
       conditions.push(eq(hospitalizationAlerts.status, status as never));
@@ -677,7 +683,7 @@ export class OpsService {
     input: UpdateHospitalizationAlertInput,
     meta: { requestId?: string; ip?: string; userAgent?: string },
   ) {
-    this.ensureFeature();
+    await this.ensureFeature(user);
     const [row] = await this.db
       .select()
       .from(hospitalizationAlerts)

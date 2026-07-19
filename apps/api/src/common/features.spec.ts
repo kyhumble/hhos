@@ -60,6 +60,7 @@ describe('featureEnabled', () => {
     assert.equal(isWoundPhotosEnabled(), false);
     process.env.FEATURE_WOUND_PHOTOS = 'true';
     assert.equal(isWoundPhotosEnabled(), true);
+    assert.equal(isWoundPhotosEnabled({ features: { woundPhotos: false } }), false);
   });
 
   it('isPhotoGeotagEnvEnabled is fail-closed', () => {

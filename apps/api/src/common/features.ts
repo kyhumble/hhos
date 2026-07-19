@@ -1,12 +1,18 @@
 /**
- * Feature-flag helpers (K12).
- * Env values accepted as true: "1", "true", "yes" (case-insensitive).
- * Missing / empty → defaultValue (FEATURE_WOUND_PHOTOS defaults false).
+ * Feature-flag helpers (K12) + multi-tenant org overrides.
  *
- * Reserved flags in `.env.example` without dedicated helpers yet (use featureEnabled):
- *   FEATURE_PHOTO_ANNOTATIONS, FEATURE_LARGE_WOUND_TASKS, FEATURE_PHOTO_BYTES_VIA_API
- * Thin helpers land with the routes that consume them (PR 5b+).
+ * Platform env FEATURE_* is a hard kill switch (must be on for any tenant).
+ * Org settings.features.* can further disable a module per agency.
+ * Env values accepted as true: "1", "true", "yes" (case-insensitive).
  */
+
+export type OrgFeatureSlice = {
+  features?: {
+    woundPhotos?: boolean;
+    oasis?: boolean;
+    serviceAi?: boolean;
+  };
+} | null | undefined;
 
 export function featureEnabled(name: string, defaultValue = false): boolean {
   const v = process.env[name];
@@ -15,19 +21,41 @@ export function featureEnabled(name: string, defaultValue = false): boolean {
   return v === '1' || lower === 'true' || lower === 'yes';
 }
 
+/**
+ * Platform kill switch AND optional per-org toggle.
+ * If org flag is explicitly false → off. Undefined → inherit platform.
+ */
+export function isFeatureEnabledForOrg(
+  envName: string,
+  orgFlag: boolean | undefined,
+  platformDefault = false,
+): boolean {
+  if (!featureEnabled(envName, platformDefault)) return false;
+  if (orgFlag === false) return false;
+  return true;
+}
+
 /** Master API switch for wound-photo routes and control plane. */
-export function isWoundPhotosEnabled(): boolean {
-  return featureEnabled('FEATURE_WOUND_PHOTOS', false);
+export function isWoundPhotosEnabled(org?: OrgFeatureSlice): boolean {
+  return isFeatureEnabledForOrg(
+    'FEATURE_WOUND_PHOTOS',
+    org?.features?.woundPhotos,
+    false,
+  );
 }
 
 /** Master API switch for OASIS-E2 / PDGM advisory routes. */
-export function isOasisEnabled(): boolean {
-  return featureEnabled('FEATURE_OASIS', false);
+export function isOasisEnabled(org?: OrgFeatureSlice): boolean {
+  return isFeatureEnabledForOrg('FEATURE_OASIS', org?.features?.oasis, false);
 }
 
 /** Master switch for Service AI routing / visit tasks / hospitalization alerts. */
-export function isServiceAiEnabled(): boolean {
-  return featureEnabled('FEATURE_SERVICE_AI', false);
+export function isServiceAiEnabled(org?: OrgFeatureSlice): boolean {
+  return isFeatureEnabledForOrg(
+    'FEATURE_SERVICE_AI',
+    org?.features?.serviceAi,
+    false,
+  );
 }
 
 /**

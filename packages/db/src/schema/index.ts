@@ -1,5 +1,6 @@
 export * from './organizations';
 export * from './users';
+export * from './org-invites';
 export * from './patients';
 export * from './referrals';
 export * from './episodes';

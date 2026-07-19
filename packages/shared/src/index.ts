@@ -11,3 +11,4 @@ export * from './oasis-e2-items';
 export * from './oasis';
 export * from './pdgm';
 export * from './routing';
+export * from './org';

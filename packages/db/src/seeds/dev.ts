@@ -37,6 +37,7 @@ const COORD_ID = '00000000-0000-4000-8000-000000000011';
 const RN_ID = '00000000-0000-4000-8000-000000000012';
 const LEAD_ID = '00000000-0000-4000-8000-000000000013';
 const COMPLIANCE_ID = '00000000-0000-4000-8000-000000000014';
+const ADMIN_ID = '00000000-0000-4000-8000-000000000015';
 
 const PATIENT_ALICE = '00000000-0000-4000-8000-000000000021';
 const PATIENT_BRUNO = '00000000-0000-4000-8000-000000000022';
@@ -76,25 +77,34 @@ async function main() {
     photoPendingTtlHours: 24,
   } as const;
 
+  const demoOrgSettings = {
+    socDueHours: 48,
+    photoGeotagEnabled: false,
+    coverageVerifiedRequired: false,
+    woundPathwayDefault: true,
+    ...phase2OrgSettingsPatch,
+    features: {
+      woundPhotos: true,
+      oasis: true,
+      serviceAi: true,
+    },
+  };
+
   await db
     .insert(organizations)
     .values({
       id: ORG_ID,
       name: 'Total Wound Care Demo LLC',
+      slug: 'demo-agency',
       npi: '1999999999',
       timezone: 'America/Chicago',
-      settings: {
-        socDueHours: 48,
-        photoGeotagEnabled: false,
-        coverageVerifiedRequired: false,
-        woundPathwayDefault: true,
-        ...phase2OrgSettingsPatch,
-      },
+      settings: demoOrgSettings,
     })
     .onConflictDoUpdate({
       target: organizations.id,
       set: {
-        settings: sql`${organizations.settings} || ${JSON.stringify(phase2OrgSettingsPatch)}::jsonb`,
+        slug: 'demo-agency',
+        settings: sql`${organizations.settings} || ${JSON.stringify(demoOrgSettings)}::jsonb`,
       },
     });
 
@@ -142,6 +152,12 @@ async function main() {
       fullName: 'Cameron Compliance',
       roleId: roleDefs[3]!.id,
       mfaRequired: true,
+    },
+    {
+      id: ADMIN_ID,
+      email: 'admin@demo.local',
+      fullName: 'Avery Admin',
+      roleId: roleDefs[5]!.id,
     },
   ] as const;
 
@@ -736,7 +752,10 @@ async function main() {
     .onConflictDoNothing();
 
   console.log('[hhos/db] Seed complete (synthetic only; no wound photo imagery).');
-  console.log('[hhos/db] Demo users: coord@demo.local, rn@demo.local, lead@demo.local, compliance@demo.local');
+  console.log(
+    '[hhos/db] Demo users: admin@demo.local, coord@demo.local, rn@demo.local, lead@demo.local, compliance@demo.local',
+  );
+  console.log('[hhos/db] Demo org slug: demo-agency');
   process.exit(0);
 }
 
