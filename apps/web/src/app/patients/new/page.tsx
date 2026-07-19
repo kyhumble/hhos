@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Alert, Button, Card, Field, Input, PageHeader } from '@/components/ui';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
@@ -70,90 +71,79 @@ export default function NewPatientPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-4">
-      <div>
-        <Link href="/intake" className="text-sm text-brand-700 hover:underline">
-          ← Intake
+    <div className="ui-page mx-auto max-w-lg">
+      <PageHeader
+        eyebrow="Intake"
+        title="Create patient"
+        description="Synthetic data only — no real ePHI."
+      />
+      <div className="-mt-2">
+        <Link href="/intake" className="ui-link text-sm">
+          ← Intake worklist
         </Link>
-        <h1 className="mt-2 text-xl font-semibold">Create patient</h1>
-        <p className="text-sm text-slate-600">Synthetic data only — no real ePHI.</p>
       </div>
 
-      <form onSubmit={onSubmit} className="space-y-3 rounded-xl border border-slate-200 bg-white p-5">
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block text-sm font-medium">
-            First name
-            <input
-              required
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-              value={form.firstName}
-              onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-            />
-          </label>
-          <label className="block text-sm font-medium">
-            Last name
-            <input
-              required
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-              value={form.lastName}
-              onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-            />
-          </label>
-        </div>
-        <label className="block text-sm font-medium">
-          Date of birth
-          <input
-            required
-            type="date"
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-            value={form.dob}
-            onChange={(e) => setForm({ ...form, dob: e.target.value })}
-          />
-        </label>
-        <fieldset className="space-y-2 rounded-lg border border-slate-100 p-3">
-          <legend className="px-1 text-sm font-medium text-slate-700">Service address (optional)</legend>
-          <input
-            placeholder="Line 1"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            value={form.line1}
-            onChange={(e) => setForm({ ...form, line1: e.target.value })}
-          />
-          <div className="grid grid-cols-3 gap-2">
-            <input
-              placeholder="City"
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              value={form.city}
-              onChange={(e) => setForm({ ...form, city: e.target.value })}
-            />
-            <input
-              placeholder="ST"
-              maxLength={2}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              value={form.state}
-              onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase() })}
-            />
-            <input
-              placeholder="ZIP"
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              value={form.postalCode}
-              onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
-            />
+      <Card>
+        <form onSubmit={onSubmit} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="First name">
+              <Input
+                required
+                value={form.firstName}
+                onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+              />
+            </Field>
+            <Field label="Last name">
+              <Input
+                required
+                value={form.lastName}
+                onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+              />
+            </Field>
           </div>
-        </fieldset>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-900 disabled:opacity-50"
-        >
-          {loading ? 'Saving…' : 'Create patient'}
-        </button>
-      </form>
+          <Field label="Date of birth">
+            <Input
+              required
+              type="date"
+              value={form.dob}
+              onChange={(e) => setForm({ ...form, dob: e.target.value })}
+            />
+          </Field>
+          <fieldset className="space-y-2 rounded-xl border border-ink-100 p-3">
+            <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-ink-500">
+              Service address (optional)
+            </legend>
+            <Input
+              placeholder="Line 1"
+              value={form.line1}
+              onChange={(e) => setForm({ ...form, line1: e.target.value })}
+            />
+            <div className="grid grid-cols-3 gap-2">
+              <Input
+                placeholder="City"
+                value={form.city}
+                onChange={(e) => setForm({ ...form, city: e.target.value })}
+              />
+              <Input
+                placeholder="ST"
+                maxLength={2}
+                value={form.state}
+                onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase() })}
+              />
+              <Input
+                placeholder="ZIP"
+                value={form.postalCode}
+                onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
+              />
+            </div>
+          </fieldset>
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? 'Saving…' : 'Create patient'}
+          </Button>
+        </form>
+      </Card>
 
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-          {error}
-        </div>
-      )}
+      {error && <Alert tone="error">{error}</Alert>}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
+import { Alert, Button, Card, Field, Input, PageHeader } from '@/components/ui';
 import { storeSession, type SessionUser } from '@/lib/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -47,57 +49,50 @@ export default function AcceptInvitePage() {
   }
 
   return (
-    <div className="mx-auto max-w-md space-y-4">
-      <h1 className="text-xl font-semibold">Accept invite</h1>
-      <p className="text-sm text-slate-600">
-        Paste the invite token from org admin (email delivery not wired yet).
-      </p>
-      <div className="space-y-3 rounded-xl border bg-white p-5">
-        <label className="block text-sm font-medium">
-          Invite token
-          <textarea
-            className="mt-1 w-full rounded-lg border px-3 py-2 font-mono text-xs"
-            rows={3}
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-          />
-        </label>
-        <button
-          type="button"
-          onClick={() => void doPeek()}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        >
-          Preview invite
-        </button>
-        {peek && (
-          <div className="rounded bg-slate-50 p-2 text-sm">
-            {peek.organization?.name} ({peek.organization?.slug}) · {peek.email} · {peek.roleCode}
-          </div>
-        )}
-        <form onSubmit={(e) => void accept(e)} className="space-y-2">
-          <label className="block text-sm font-medium">
-            Full name
-            <input
-              className="mt-1 w-full rounded-lg border px-3 py-2"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+    <div className="ui-page mx-auto max-w-md">
+      <PageHeader
+        eyebrow="Onboarding"
+        title="Accept invite"
+        description="Paste the invite token from org admin (email delivery not wired yet)."
+      />
+
+      <Card>
+        <div className="space-y-3">
+          <Field label="Invite token">
+            <textarea
+              className="ui-input min-h-[5rem] font-mono text-xs"
+              rows={3}
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
             />
-          </label>
-          <button type="submit" className="w-full rounded-lg bg-brand-700 px-3 py-2 text-sm text-white">
-            Accept & sign in
-          </button>
-        </form>
-      </div>
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</div>
-      )}
-      {ok && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-          {ok}{' '}
-          <a className="underline" href="/">
-            Dashboard
-          </a>
+          </Field>
+          <Button type="button" variant="secondary" onClick={() => void doPeek()}>
+            Preview invite
+          </Button>
+          {peek && (
+            <div className="rounded-xl bg-ink-50 px-3 py-2 text-sm text-ink-700">
+              {peek.organization?.name} ({peek.organization?.slug}) · {peek.email} · {peek.roleCode}
+            </div>
+          )}
+          <form onSubmit={(e) => void accept(e)} className="space-y-3 border-t border-ink-100 pt-3">
+            <Field label="Full name">
+              <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+            </Field>
+            <Button type="submit" className="w-full">
+              Accept & sign in
+            </Button>
+          </form>
         </div>
+      </Card>
+
+      {error && <Alert tone="error">{error}</Alert>}
+      {ok && (
+        <Alert tone="success">
+          {ok}{' '}
+          <Link className="ui-link" href="/">
+            Dashboard
+          </Link>
+        </Alert>
       )}
     </div>
   );

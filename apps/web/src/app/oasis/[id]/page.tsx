@@ -1,7 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Field,
+  Input,
+  PageHeader,
+  Select,
+  statusTone,
+} from '@/components/ui';
 import { getToken } from '@/lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -163,86 +175,75 @@ export default function OasisDetailPage() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">{error}</div>
+      <div className="ui-page">
+        <Link href="/oasis" className="ui-link text-sm">
+          ← Assessments
+        </Link>
+        <Alert tone="warn">{error}</Alert>
+      </div>
     );
   }
+
   if (!assessment) {
-    return <div className="text-sm text-slate-500">Loading…</div>;
+    return (
+      <div className="ui-page">
+        <p className="text-sm text-ink-500">Loading…</p>
+      </div>
+    );
   }
 
   const sections = Array.from(new Set(items.map((i) => i.section)));
   const editable = assessment.status === 'draft';
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <a href="/oasis" className="text-sm text-brand-700 hover:underline">
-            ← Assessments
-          </a>
-          <h1 className="mt-1 text-xl font-semibold">
-            OASIS {assessment.timepoint} · {assessment.status}
-          </h1>
-          <p className="text-sm text-slate-600">
-            Completeness {assessment.completenessScore}% · Episode{' '}
-            <a className="text-brand-700 underline" href={`/episodes/${assessment.episodeId}`}>
-              open
-            </a>
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {editable && (
-            <>
-              <button
-                type="button"
-                onClick={() => void saveAnswers()}
-                className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white"
-              >
-                Save answers
-              </button>
-              <button
-                type="button"
-                onClick={() => void validate()}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              >
-                Validate / PDGM flags
-              </button>
-              <button
-                type="button"
-                onClick={() => void submit()}
-                className="rounded-lg bg-brand-700 px-3 py-2 text-sm text-white"
-              >
-                Submit for review
-              </button>
-            </>
-          )}
-          {assessment.status === 'in_review' && (
-            <>
-              <button
-                type="button"
-                onClick={() => void review('approve_lock')}
-                className="rounded-lg bg-emerald-700 px-3 py-2 text-sm text-white"
-              >
-                Approve & lock
-              </button>
-              <button
-                type="button"
-                onClick={() => void review('return_draft')}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              >
-                Return to draft
-              </button>
-            </>
-          )}
-        </div>
+    <div className="ui-page">
+      <PageHeader
+        eyebrow="OASIS"
+        title={`${assessment.timepoint} assessment`}
+        description={`Completeness ${assessment.completenessScore}% · Status ${assessment.status}`}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={statusTone(assessment.status)}>{assessment.status}</Badge>
+            {editable && (
+              <>
+                <Button size="sm" variant="secondary" onClick={() => void saveAnswers()}>
+                  Save answers
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => void validate()}>
+                  Validate / PDGM
+                </Button>
+                <Button size="sm" onClick={() => void submit()}>
+                  Submit for review
+                </Button>
+              </>
+            )}
+            {assessment.status === 'in_review' && (
+              <>
+                <Button size="sm" onClick={() => void review('approve_lock')}>
+                  Approve & lock
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => void review('return_draft')}>
+                  Return to draft
+                </Button>
+              </>
+            )}
+          </div>
+        }
+      />
+
+      <div className="-mt-2 flex flex-wrap gap-3 text-sm">
+        <Link href="/oasis" className="ui-link">
+          ← All assessments
+        </Link>
+        <Link href={`/episodes/${assessment.episodeId}`} className="ui-link">
+          Open episode
+        </Link>
       </div>
 
-      {msg && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">{msg}</div>
-      )}
+      {msg && <Alert tone="info">{msg}</Alert>}
 
       {assessment.pdgmHintJson && (
-        <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950">
+        <Alert tone="info">
           <div className="font-medium">PDGM hint (advisory)</div>
           <ul className="mt-2 list-inside list-disc text-xs">
             <li>Primary dx: {assessment.pdgmHintJson.primaryDxIcd10 ?? '—'}</li>
@@ -253,49 +254,39 @@ export default function OasisDetailPage() {
             <li>LUPA risk: {assessment.pdgmHintJson.lupaRisk ? 'yes' : 'no'}</li>
           </ul>
           <p className="mt-2 text-xs opacity-80">{assessment.pdgmHintJson.disclaimer}</p>
-        </div>
+        </Alert>
       )}
 
       {(assessment.flagsJson?.length ?? 0) > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
-          <div className="font-medium text-amber-950">Flags</div>
-          <ul className="mt-2 space-y-1 text-xs text-amber-900">
+        <Alert tone="warn">
+          <div className="font-medium">Flags</div>
+          <ul className="mt-2 space-y-1 text-xs">
             {assessment.flagsJson.map((f) => (
               <li key={f.code}>
                 <strong>{f.code}</strong> ({f.severity}): {f.message}
               </li>
             ))}
           </ul>
-        </div>
+        </Alert>
       )}
 
       {sections.map((section) => (
-        <section key={section} className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-            {section.replace(/_/g, ' ')}
-          </h2>
-          <div className="mt-3 space-y-4">
+        <Card key={section}>
+          <h2 className="ui-section-title mb-4 capitalize">{section.replace(/_/g, ' ')}</h2>
+          <div className="space-y-4">
             {items
               .filter((i) => i.section === section)
               .map((item) => (
-                <label key={item.id} className="block text-sm">
-                  <span className="font-medium text-slate-800">
-                    {item.code} — {item.label}
-                    {item.requiredForSoc ? (
-                      <span className="text-red-600"> *</span>
-                    ) : null}
-                  </span>
-                  {item.helpText && (
-                    <span className="mt-0.5 block text-xs text-slate-500">{item.helpText}</span>
-                  )}
+                <Field
+                  key={item.id}
+                  label={`${item.code} — ${item.label}${item.requiredForSoc ? ' *' : ''}`}
+                  hint={item.helpText}
+                >
                   {item.options ? (
-                    <select
+                    <Select
                       disabled={!editable}
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
                       value={draft[item.id] ?? ''}
-                      onChange={(e) =>
-                        setDraft((d) => ({ ...d, [item.id]: e.target.value }))
-                      }
+                      onChange={(e) => setDraft((d) => ({ ...d, [item.id]: e.target.value }))}
                     >
                       <option value="">—</option>
                       {item.options.map((o) => (
@@ -303,21 +294,18 @@ export default function OasisDetailPage() {
                           {o.label}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   ) : (
-                    <input
+                    <Input
                       disabled={!editable}
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
                       value={draft[item.id] ?? ''}
-                      onChange={(e) =>
-                        setDraft((d) => ({ ...d, [item.id]: e.target.value }))
-                      }
+                      onChange={(e) => setDraft((d) => ({ ...d, [item.id]: e.target.value }))}
                     />
                   )}
-                </label>
+                </Field>
               ))}
           </div>
-        </section>
+        </Card>
       ))}
     </div>
   );

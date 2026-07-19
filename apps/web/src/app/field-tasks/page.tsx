@@ -1,6 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  PageHeader,
+  statusTone,
+} from '@/components/ui';
 import { getToken } from '@/lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -16,7 +27,7 @@ type Task = {
   scheduledAt: string | null;
 };
 
-type Alert = {
+type HospAlert = {
   id: string;
   facilityName: string;
   status: string;
@@ -27,7 +38,7 @@ type Alert = {
 
 export default function FieldTasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [alerts, setAlerts] = useState<HospAlert[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
     episodeId: '',
@@ -131,108 +142,137 @@ export default function FieldTasksPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold">Field tasks & alerts</h1>
-        <p className="text-sm text-slate-600">Phase 4 operations — visit tasks and hospitalization alerts.</p>
-      </div>
+    <div className="ui-page">
+      <PageHeader
+        eyebrow="Operations"
+        title="Field tasks & alerts"
+        description="Visit tasks and hospitalization alerts for field operations."
+      />
 
-      {error && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">{error}</div>
-      )}
+      {error && <Alert tone="warn">{error}</Alert>}
 
-      <form onSubmit={(e) => void createTask(e)} className="rounded-xl border bg-white p-4 space-y-2">
-        <h2 className="text-sm font-semibold">New visit task</h2>
-        <input
-          className="w-full rounded border px-3 py-2 text-xs font-mono"
-          placeholder="episodeId"
-          value={form.episodeId}
-          onChange={(e) => setForm((f) => ({ ...f, episodeId: e.target.value }))}
-          required
-        />
-        <input
-          className="w-full rounded border px-3 py-2 text-sm"
-          placeholder="title"
-          value={form.title}
-          onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-        />
-        <button type="submit" className="rounded-lg bg-brand-700 px-3 py-2 text-sm text-white">
-          Create task
-        </button>
-      </form>
+      <div className="grid gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-2">
+          <h2 className="ui-section-title mb-4">New visit task</h2>
+          <form onSubmit={(e) => void createTask(e)} className="space-y-3">
+            <Field label="Episode ID">
+              <Input
+                className="font-mono text-xs"
+                placeholder="episodeId"
+                value={form.episodeId}
+                onChange={(e) => setForm((f) => ({ ...f, episodeId: e.target.value }))}
+                required
+              />
+            </Field>
+            <Field label="Title">
+              <Input
+                value={form.title}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+              />
+            </Field>
+            <Button type="submit" className="w-full">
+              Create task
+            </Button>
+          </form>
+        </Card>
 
-      <div className="rounded-xl border bg-white overflow-hidden">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-            <tr>
-              <th className="px-4 py-2 text-left">Title</th>
-              <th className="px-4 py-2 text-left">Type</th>
-              <th className="px-4 py-2 text-left">Status</th>
-              <th className="px-4 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {tasks.map((t) => (
-              <tr key={t.id} className="border-t">
-                <td className="px-4 py-2">{t.title}</td>
-                <td className="px-4 py-2">{t.taskType}</td>
-                <td className="px-4 py-2">{t.status}</td>
-                <td className="px-4 py-2 text-right">
-                  {t.status !== 'completed' && t.status !== 'cancelled' && (
-                    <button
-                      type="button"
-                      className="text-brand-700 text-xs underline"
-                      onClick={() => void completeTask(t.id)}
-                    >
-                      Complete
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {tasks.length === 0 && (
+        <div className="ui-table-wrap lg:col-span-3">
+          <div className="border-b border-ink-100 px-4 py-3">
+            <h2 className="ui-section-title">Visit tasks</h2>
+          </div>
+          <table className="ui-table">
+            <thead>
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-slate-500">
-                  No visit tasks
-                </td>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th />
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {tasks.map((t) => (
+                <tr key={t.id}>
+                  <td className="font-medium text-ink-900">{t.title}</td>
+                  <td className="text-xs text-ink-500">{t.taskType}</td>
+                  <td>
+                    <Badge tone={statusTone(t.status)}>{t.status}</Badge>
+                  </td>
+                  <td className="text-right">
+                    {t.status !== 'completed' && t.status !== 'cancelled' && (
+                      <Button size="sm" variant="ghost" onClick={() => void completeTask(t.id)}>
+                        Complete
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {tasks.length === 0 && (
+                <tr>
+                  <td colSpan={4}>
+                    <EmptyState title="No visit tasks" body="Create a task for an episode above." />
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <form onSubmit={(e) => void createAlert(e)} className="rounded-xl border bg-white p-4 space-y-2">
-        <h2 className="text-sm font-semibold">Hospitalization alert</h2>
-        <input
-          className="w-full rounded border px-3 py-2 text-xs font-mono"
-          placeholder="patientId"
-          value={alertForm.patientId}
-          onChange={(e) => setAlertForm((f) => ({ ...f, patientId: e.target.value }))}
-          required
-        />
-        <input
-          className="w-full rounded border px-3 py-2 text-xs font-mono"
-          placeholder="episodeId (optional — creates follow-up task)"
-          value={alertForm.episodeId}
-          onChange={(e) => setAlertForm((f) => ({ ...f, episodeId: e.target.value }))}
-        />
-        <input
-          className="w-full rounded border px-3 py-2 text-sm"
-          value={alertForm.facilityName}
-          onChange={(e) => setAlertForm((f) => ({ ...f, facilityName: e.target.value }))}
-        />
-        <button type="submit" className="rounded-lg bg-red-700 px-3 py-2 text-sm text-white">
-          File alert
-        </button>
-      </form>
+      <div className="grid gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-2">
+          <h2 className="ui-section-title mb-4">Hospitalization alert</h2>
+          <form onSubmit={(e) => void createAlert(e)} className="space-y-3">
+            <Field label="Patient ID">
+              <Input
+                className="font-mono text-xs"
+                placeholder="patientId"
+                value={alertForm.patientId}
+                onChange={(e) => setAlertForm((f) => ({ ...f, patientId: e.target.value }))}
+                required
+              />
+            </Field>
+            <Field label="Episode ID" hint="Optional — creates follow-up task">
+              <Input
+                className="font-mono text-xs"
+                placeholder="episodeId (optional)"
+                value={alertForm.episodeId}
+                onChange={(e) => setAlertForm((f) => ({ ...f, episodeId: e.target.value }))}
+              />
+            </Field>
+            <Field label="Facility">
+              <Input
+                value={alertForm.facilityName}
+                onChange={(e) => setAlertForm((f) => ({ ...f, facilityName: e.target.value }))}
+              />
+            </Field>
+            <Button type="submit" variant="danger" className="w-full">
+              File alert
+            </Button>
+          </form>
+        </Card>
 
-      <ul className="space-y-2 text-sm">
-        {alerts.map((a) => (
-          <li key={a.id} className="rounded-lg border border-red-100 bg-red-50 px-3 py-2">
-            <strong>{a.facilityName}</strong> · {a.status} · {a.source}
-          </li>
-        ))}
-      </ul>
+        <div className="space-y-3 lg:col-span-3">
+          <h2 className="ui-section-title">Active alerts</h2>
+          {alerts.length === 0 && (
+            <Card>
+              <EmptyState title="No hospitalization alerts" body="Filed alerts appear here." />
+            </Card>
+          )}
+          {alerts.map((a) => (
+            <Card key={a.id} className="border-red-100 bg-red-50/40">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="font-medium text-ink-900">{a.facilityName}</div>
+                  <div className="mt-0.5 text-xs text-ink-500">
+                    {a.source} · {new Date(a.createdAt).toLocaleString()}
+                  </div>
+                </div>
+                <Badge tone="danger">{a.status}</Badge>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

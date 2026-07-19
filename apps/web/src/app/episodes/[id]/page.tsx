@@ -3,6 +3,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Field,
+  Input,
+  PageHeader,
+  Select,
+  statusTone,
+} from '@/components/ui';
 import { API_URL, authHeaders, getToken } from '@/lib/api';
 import { EpisodePhotoGallery } from '@/components/episode-photo-gallery';
 
@@ -57,7 +68,6 @@ export default function EpisodeDetailPage() {
     signerRelationship: '',
   });
   const [saving, setSaving] = useState(false);
-  /** Stable per form session so retries replay instead of duplicating consents */
   const [consentIdempotencyKey] = useState(
     () =>
       `web-${id}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)}`,
@@ -196,172 +206,157 @@ export default function EpisodeDetailPage() {
     }
   }
 
+  async function startOasis() {
+    const t = getToken();
+    if (!t) return;
+    setSaving(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`${API_URL}/v1/oasis/assessments`, {
+        method: 'POST',
+        headers: {
+          ...authHeaders(t),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ episodeId: id, timepoint: 'SOC' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMsg(data.error?.message ?? 'OASIS create failed (is FEATURE_OASIS=true?)');
+        return;
+      }
+      window.location.href = `/oasis/${data.id}`;
+    } catch {
+      setMsg('API unreachable');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (error) {
     return (
-      <div className="space-y-3">
-        <Link href="/intake" className="text-sm text-brand-700 hover:underline">
+      <div className="ui-page">
+        <Link href="/intake" className="ui-link text-sm">
           ← Intake
         </Link>
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">{error}</div>
+        <Alert tone="warn">{error}</Alert>
       </div>
     );
   }
 
   if (!episode) {
-    return <p className="text-sm text-slate-500">Loading episode…</p>;
+    return (
+      <div className="ui-page">
+        <p className="text-sm text-ink-500">Loading episode…</p>
+      </div>
+    );
   }
 
   const p = episode.patient;
 
   return (
-    <div className="space-y-6">
+    <div className="ui-page">
       <div>
-        <Link href="/intake" className="text-sm text-brand-700 hover:underline">
+        <Link href="/intake" className="ui-link text-sm">
           ← Intake worklist
         </Link>
-        <h1 className="mt-2 text-xl font-semibold">
-          {p ? `${p.lastName}, ${p.firstName}` : 'Episode'} · {p?.mrn}
-        </h1>
-        <p className="text-sm text-slate-600">
-          {episode.status} · intake {episode.intakeStatus} · {episode.careType}
-          {episode.socDueAt && ` · SOC due ${new Date(episode.socDueAt).toLocaleString()}`}
-        </p>
-        <div className="mt-3">
-          <button
-            type="button"
-            className="rounded-lg bg-brand-700 px-3 py-1.5 text-sm text-white hover:bg-brand-900"
-            onClick={async () => {
-              const t = getToken();
-              if (!t) return;
-              setSaving(true);
-              setMsg(null);
-              try {
-                const res = await fetch(`${API_URL}/v1/oasis/assessments`, {
-                  method: 'POST',
-                  headers: {
-                    ...authHeaders(t),
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({ episodeId: id, timepoint: 'SOC' }),
-                });
-                const data = await res.json();
-                if (!res.ok) {
-                  setMsg(data.error?.message ?? 'OASIS create failed (is FEATURE_OASIS=true?)');
-                  return;
-                }
-                window.location.href = `/oasis/${data.id}`;
-              } catch {
-                setMsg('API unreachable');
-              } finally {
-                setSaving(false);
-              }
-            }}
-            disabled={saving}
-          >
-            Start SOC OASIS assessment
-          </button>
-        </div>
-        <div className="mt-2 flex flex-wrap gap-1">
-          {episode.flags.map((f) => (
-            <span key={f} className="rounded bg-red-50 px-1.5 py-0.5 text-xs text-red-800">
-              {f}
-            </span>
-          ))}
-        </div>
       </div>
 
-      {msg && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">{msg}</div>
+      <PageHeader
+        eyebrow="Episode"
+        title={p ? `${p.lastName}, ${p.firstName}` : 'Episode'}
+        description={`${p?.mrn ?? ''} · ${episode.status} · intake ${episode.intakeStatus} · ${episode.careType}${
+          episode.socDueAt ? ` · SOC due ${new Date(episode.socDueAt).toLocaleString()}` : ''
+        }`}
+        actions={
+          <Button size="sm" onClick={() => void startOasis()} disabled={saving}>
+            Start SOC OASIS
+          </Button>
+        }
+      />
+
+      {(episode.flags?.length ?? 0) > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {episode.flags.map((f) => (
+            <Badge key={f} tone="danger">
+              {f}
+            </Badge>
+          ))}
+        </div>
       )}
+
+      {msg && <Alert tone="info">{msg}</Alert>}
 
       <EpisodePhotoGallery episodeId={episode.id} />
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="font-medium">Intake checklist</h2>
-        <ul className="mt-3 divide-y divide-slate-100">
-          {episode.checklist.map((item) => (
-            <li key={item.id} className="flex items-center justify-between py-2 text-sm">
-              <span>
-                {item.code}
-                {item.required && <span className="ml-1 text-xs text-slate-400">required</span>}
-              </span>
-              <span
-                className={
-                  item.status === 'complete'
-                    ? 'rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800'
-                    : 'rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-900'
-                }
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <h2 className="ui-section-title mb-3">Intake checklist</h2>
+          <ul className="divide-y divide-ink-100">
+            {episode.checklist.map((item) => (
+              <li key={item.id} className="flex items-center justify-between py-2.5 text-sm">
+                <span className="text-ink-800">
+                  {item.code}
+                  {item.required && (
+                    <span className="ml-1 text-[10px] uppercase text-ink-400">required</span>
+                  )}
+                </span>
+                <Badge tone={statusTone(item.status)}>{item.status}</Badge>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        <Card>
+          <h2 className="ui-section-title mb-3">Episode clinical fields</h2>
+          <form onSubmit={saveEpisodePatch} className="space-y-3">
+            <Field label="F2F status">
+              <Select
+                value={episodePatch.f2fStatus}
+                onChange={(e) => setEpisodePatch({ ...episodePatch, f2fStatus: e.target.value })}
               >
-                {item.status}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="font-medium">Episode clinical fields</h2>
-        <form onSubmit={saveEpisodePatch} className="mt-3 grid gap-3 md:grid-cols-3">
-          <label className="text-sm">
-            F2F status
-            <select
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-              value={episodePatch.f2fStatus}
-              onChange={(e) => setEpisodePatch({ ...episodePatch, f2fStatus: e.target.value })}
-            >
-              <option value="unknown">unknown</option>
-              <option value="scheduled">scheduled</option>
-              <option value="completed">completed</option>
-              <option value="missing">missing</option>
-              <option value="waived_review">waived_review</option>
-            </select>
-          </label>
-          <label className="text-sm">
-            Orders status
-            <select
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-              value={episodePatch.ordersStatus}
-              onChange={(e) => setEpisodePatch({ ...episodePatch, ordersStatus: e.target.value })}
-            >
-              <option value="missing">missing</option>
-              <option value="verbal">verbal</option>
-              <option value="signed">signed</option>
-              <option value="expired">expired</option>
-            </select>
-          </label>
-          <label className="text-sm">
-            Primary DX ICD-10
-            <input
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-              value={episodePatch.primaryDxIcd10}
-              onChange={(e) =>
-                setEpisodePatch({ ...episodePatch, primaryDxIcd10: e.target.value })
-              }
-            />
-          </label>
-          <div className="md:col-span-3">
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-            >
+                <option value="unknown">unknown</option>
+                <option value="scheduled">scheduled</option>
+                <option value="completed">completed</option>
+                <option value="missing">missing</option>
+                <option value="waived_review">waived_review</option>
+              </Select>
+            </Field>
+            <Field label="Orders status">
+              <Select
+                value={episodePatch.ordersStatus}
+                onChange={(e) => setEpisodePatch({ ...episodePatch, ordersStatus: e.target.value })}
+              >
+                <option value="missing">missing</option>
+                <option value="verbal">verbal</option>
+                <option value="signed">signed</option>
+                <option value="expired">expired</option>
+              </Select>
+            </Field>
+            <Field label="Primary DX ICD-10">
+              <Input
+                value={episodePatch.primaryDxIcd10}
+                onChange={(e) =>
+                  setEpisodePatch({ ...episodePatch, primaryDxIcd10: e.target.value })
+                }
+              />
+            </Field>
+            <Button type="submit" variant="secondary" disabled={saving}>
               Save & recompute checklist
-            </button>
-          </div>
-        </form>
-      </section>
+            </Button>
+          </form>
+        </Card>
+      </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="font-medium">Capture consent</h2>
-        <p className="mt-1 text-xs text-amber-800">
+      <Card>
+        <h2 className="ui-section-title mb-1">Capture consent</h2>
+        <p className="mb-4 text-xs text-amber-800">
           Template body text is NOT LEGAL FINAL. Typed signature is acceptable for demo.
         </p>
-        <form onSubmit={captureConsent} className="mt-3 space-y-3">
-          <label className="block text-sm">
-            Template
-            <select
+        <form onSubmit={captureConsent} className="space-y-3">
+          <Field label="Template">
+            <Select
               required
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
               value={consentForm.templateId}
               onChange={(e) => setConsentForm({ ...consentForm, templateId: e.target.value })}
             >
@@ -371,13 +366,11 @@ export default function EpisodeDetailPage() {
                   {t.consentType} — {t.title}
                 </option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </Field>
           <div className="grid gap-3 md:grid-cols-2">
-            <label className="block text-sm">
-              Signer type
-              <select
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+            <Field label="Signer type">
+              <Select
                 value={consentForm.signerType}
                 onChange={(e) =>
                   setConsentForm({
@@ -388,49 +381,39 @@ export default function EpisodeDetailPage() {
               >
                 <option value="patient">patient</option>
                 <option value="surrogate">surrogate</option>
-              </select>
-            </label>
-            <label className="block text-sm">
-              Signer name
-              <input
+              </Select>
+            </Field>
+            <Field label="Signer name">
+              <Input
                 required
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
                 value={consentForm.signerName}
                 onChange={(e) => setConsentForm({ ...consentForm, signerName: e.target.value })}
               />
-            </label>
+            </Field>
           </div>
           {consentForm.signerType === 'surrogate' && (
-            <label className="block text-sm">
-              Relationship
-              <input
+            <Field label="Relationship">
+              <Input
                 required
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
                 value={consentForm.signerRelationship}
                 onChange={(e) =>
                   setConsentForm({ ...consentForm, signerRelationship: e.target.value })
                 }
               />
-            </label>
+            </Field>
           )}
-          <label className="block text-sm">
-            Typed signature
-            <input
+          <Field label="Typed signature">
+            <Input
               required
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
               value={consentForm.typedName}
               onChange={(e) => setConsentForm({ ...consentForm, typedName: e.target.value })}
             />
-          </label>
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-900 disabled:opacity-50"
-          >
+          </Field>
+          <Button type="submit" disabled={saving}>
             {saving ? 'Saving…' : 'Sign consent'}
-          </button>
+          </Button>
         </form>
-      </section>
+      </Card>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { Alert, Badge, Card, EmptyState, PageHeader, statusTone } from '@/components/ui';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
@@ -46,37 +47,70 @@ export default function PatientDetailPage() {
   }, [id]);
 
   return (
-    <div className="space-y-4">
-      <Link href="/intake" className="text-sm text-brand-700 hover:underline">
-        ← Intake
-      </Link>
-      {error && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">{error}</div>
-      )}
+    <div className="ui-page">
+      <div>
+        <Link href="/intake" className="ui-link text-sm">
+          ← Intake
+        </Link>
+      </div>
+
+      {error && <Alert tone="warn">{error}</Alert>}
+
       {patient && (
         <>
-          <div>
-            <h1 className="text-xl font-semibold">
-              {patient.lastName}, {patient.firstName}
-            </h1>
-            <p className="text-sm text-slate-600">
-              MRN {patient.mrn} · DOB {patient.dob} · {patient.status} · capacity{' '}
-              {patient.capacityStatus}
-            </p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <h2 className="text-sm font-medium text-slate-700">Addresses</h2>
-            <ul className="mt-2 space-y-1 text-sm">
-              {(patient.addresses ?? []).map((a, i) => (
-                <li key={i}>
-                  <span className="text-xs uppercase text-slate-400">{a.type}</span> {a.line1},{' '}
-                  {a.city} {a.state}
-                </li>
-              ))}
-              {(patient.addresses ?? []).length === 0 && (
-                <li className="text-slate-500">None on file</li>
+          <PageHeader
+            eyebrow="Patient"
+            title={`${patient.lastName}, ${patient.firstName}`}
+            description={`MRN ${patient.mrn} · DOB ${patient.dob} · lang ${patient.preferredLanguage}`}
+            actions={
+              <div className="flex flex-wrap gap-2">
+                <Badge tone={statusTone(patient.status)}>{patient.status}</Badge>
+                <Badge tone="neutral">capacity {patient.capacityStatus}</Badge>
+              </div>
+            }
+          />
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <h2 className="ui-section-title mb-3">Addresses</h2>
+              {(patient.addresses ?? []).length === 0 ? (
+                <EmptyState title="None on file" />
+              ) : (
+                <ul className="space-y-2 text-sm">
+                  {(patient.addresses ?? []).map((a, i) => (
+                    <li key={i} className="rounded-lg bg-ink-50 px-3 py-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-ink-400">
+                        {a.type}
+                      </span>
+                      <div className="text-ink-800">
+                        {a.line1}, {a.city} {a.state}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               )}
-            </ul>
+            </Card>
+
+            <Card>
+              <h2 className="ui-section-title mb-3">Contacts</h2>
+              {(patient.contacts ?? []).length === 0 ? (
+                <EmptyState title="None on file" />
+              ) : (
+                <ul className="space-y-2 text-sm">
+                  {(patient.contacts ?? []).map((c, i) => (
+                    <li key={i} className="rounded-lg bg-ink-50 px-3 py-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-ink-400">
+                        {c.type}
+                      </span>
+                      <div className="text-ink-800">
+                        {c.fullName}
+                        {c.relationship ? ` · ${c.relationship}` : ''}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
           </div>
         </>
       )}

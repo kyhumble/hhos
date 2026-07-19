@@ -1,6 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  PageHeader,
+  Select,
+  statusTone,
+} from '@/components/ui';
 import { getToken } from '@/lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -155,147 +167,182 @@ export default function AdminOrgPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold">Organization admin</h1>
-        <p className="text-sm text-slate-600">
-          Multi-tenant settings, members, and invites. Data is always scoped by{' '}
-          <code className="rounded bg-slate-100 px-1">org_id</code>.
-        </p>
-      </div>
+    <div className="ui-page">
+      <PageHeader
+        eyebrow="Tenant"
+        title="Organization admin"
+        description="Multi-tenant settings, members, and invites. All data is scoped by org_id."
+      />
 
-      {error && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">{error}</div>
-      )}
-      {msg && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">{msg}</div>
-      )}
+      {error && <Alert tone="warn">{error}</Alert>}
+      {msg && <Alert tone="info">{msg}</Alert>}
 
       {org && (
-        <form onSubmit={(e) => void saveSettings(e)} className="rounded-xl border bg-white p-4 space-y-3">
-          <h2 className="text-sm font-semibold">Tenant profile</h2>
-          <div className="text-xs text-slate-500 font-mono">
-            {org.id} · slug <strong>{org.slug}</strong>
-          </div>
-          <label className="block text-sm">
-            Name
-            <input
-              className="mt-1 w-full rounded border px-3 py-2"
-              value={org.name}
-              onChange={(e) => setOrg({ ...org, name: e.target.value })}
-            />
-          </label>
-          <label className="block text-sm">
-            Timezone
-            <input
-              className="mt-1 w-full rounded border px-3 py-2"
-              value={org.timezone}
-              onChange={(e) => setOrg({ ...org, timezone: e.target.value })}
-            />
-          </label>
-          <label className="block text-sm">
-            SOC due hours
-            <input
-              type="number"
-              className="mt-1 w-full rounded border px-3 py-2"
-              value={org.settings.socDueHours ?? 48}
-              onChange={(e) =>
-                setOrg({
-                  ...org,
-                  settings: { ...org.settings, socDueHours: Number(e.target.value) },
-                })
-              }
-            />
-          </label>
-          <fieldset className="space-y-1 text-sm">
-            <legend className="font-medium">Module flags (per-tenant; platform env is kill switch)</legend>
-            {(
-              [
-                ['woundPhotos', 'Wound photos'],
-                ['oasis', 'OASIS / PDGM'],
-                ['serviceAi', 'Service AI routing'],
-              ] as const
-            ).map(([key, label]) => (
-              <label key={key} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={org.settings.features?.[key] !== false}
-                  onChange={() => toggleFeature(key)}
+        <form onSubmit={(e) => void saveSettings(e)}>
+          <Card>
+            <h2 className="ui-section-title mb-1">Tenant profile</h2>
+            <p className="mb-4 font-mono text-[11px] text-ink-400">
+              {org.id} · slug <strong className="text-ink-600">{org.slug}</strong>
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Name">
+                <Input
+                  value={org.name}
+                  onChange={(e) => setOrg({ ...org, name: e.target.value })}
                 />
-                {label}
-              </label>
-            ))}
-          </fieldset>
-          <button type="submit" className="rounded-lg bg-brand-700 px-3 py-2 text-sm text-white">
-            Save settings
-          </button>
+              </Field>
+              <Field label="Timezone">
+                <Input
+                  value={org.timezone}
+                  onChange={(e) => setOrg({ ...org, timezone: e.target.value })}
+                />
+              </Field>
+              <Field label="SOC due hours">
+                <Input
+                  type="number"
+                  value={org.settings.socDueHours ?? 48}
+                  onChange={(e) =>
+                    setOrg({
+                      ...org,
+                      settings: { ...org.settings, socDueHours: Number(e.target.value) },
+                    })
+                  }
+                />
+              </Field>
+            </div>
+            <fieldset className="mt-4 space-y-2">
+              <legend className="ui-label">
+                Module flags (per-tenant; platform env is kill switch)
+              </legend>
+              {(
+                [
+                  ['woundPhotos', 'Wound photos'],
+                  ['oasis', 'OASIS / PDGM'],
+                  ['serviceAi', 'Service AI routing'],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 text-sm text-ink-700">
+                  <input
+                    type="checkbox"
+                    className="rounded border-ink-300"
+                    checked={org.settings.features?.[key] !== false}
+                    onChange={() => toggleFeature(key)}
+                  />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
+            <div className="mt-4">
+              <Button type="submit">Save settings</Button>
+            </div>
+          </Card>
         </form>
       )}
 
-      <section className="rounded-xl border bg-white p-4 space-y-3">
-        <h2 className="text-sm font-semibold">Members</h2>
-        <ul className="text-sm space-y-1">
-          {members.map((m) => (
-            <li key={m.id}>
-              <strong>{m.fullName}</strong> · {m.email} · {m.status} ·{' '}
-              {(m.roles ?? []).join(', ') || 'no role'}
-            </li>
-          ))}
-          {members.length === 0 && <li className="text-slate-500">No members (or missing user:admin)</li>}
-        </ul>
-      </section>
-
-      <form onSubmit={(e) => void sendInvite(e)} className="rounded-xl border bg-white p-4 space-y-2">
-        <h2 className="text-sm font-semibold">Invite user</h2>
-        <input
-          className="w-full rounded border px-3 py-2 text-sm"
-          placeholder="email"
-          type="email"
-          value={inviteForm.email}
-          onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))}
-          required
-        />
-        <input
-          className="w-full rounded border px-3 py-2 text-sm"
-          placeholder="full name"
-          value={inviteForm.fullName}
-          onChange={(e) => setInviteForm((f) => ({ ...f, fullName: e.target.value }))}
-          required
-        />
-        <select
-          className="w-full rounded border px-3 py-2 text-sm"
-          value={inviteForm.roleCode}
-          onChange={(e) => setInviteForm((f) => ({ ...f, roleCode: e.target.value }))}
-        >
-          <option value="field_rn">field_rn</option>
-          <option value="intake_coordinator">intake_coordinator</option>
-          <option value="clinical_lead">clinical_lead</option>
-          <option value="billing">billing</option>
-          <option value="compliance">compliance</option>
-          <option value="admin">admin</option>
-        </select>
-        <button type="submit" className="rounded-lg bg-brand-700 px-3 py-2 text-sm text-white">
-          Create invite
-        </button>
-        {lastInviteToken && (
-          <div className="rounded border border-emerald-200 bg-emerald-50 p-2 text-xs break-all">
-            Dev invite token (copy to Accept invite page):{' '}
-            <code>{lastInviteToken}</code>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="ui-table-wrap">
+          <div className="border-b border-ink-100 px-4 py-3">
+            <h2 className="ui-section-title">Members</h2>
           </div>
-        )}
-      </form>
+          <table className="ui-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Roles</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {members.map((m) => (
+                <tr key={m.id}>
+                  <td className="font-medium text-ink-900">{m.fullName}</td>
+                  <td className="text-sm text-ink-600">{m.email}</td>
+                  <td className="text-xs text-ink-500">
+                    {(m.roles ?? []).join(', ') || '—'}
+                  </td>
+                  <td>
+                    <Badge tone={statusTone(m.status)}>{m.status}</Badge>
+                  </td>
+                </tr>
+              ))}
+              {members.length === 0 && (
+                <tr>
+                  <td colSpan={4}>
+                    <EmptyState
+                      title="No members"
+                      body="Missing user:admin permission, or org has no members yet."
+                    />
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
-      <section className="rounded-xl border bg-white p-4">
-        <h2 className="text-sm font-semibold mb-2">Recent invites</h2>
-        <ul className="text-sm space-y-1">
-          {invites.map((i) => (
-            <li key={i.id}>
-              {i.email} · {i.roleCode} · {i.status}
-            </li>
-          ))}
-          {invites.length === 0 && <li className="text-slate-500">None yet</li>}
-        </ul>
-      </section>
+        <Card>
+          <h2 className="ui-section-title mb-4">Invite user</h2>
+          <form onSubmit={(e) => void sendInvite(e)} className="space-y-3">
+            <Field label="Email">
+              <Input
+                type="email"
+                placeholder="email"
+                value={inviteForm.email}
+                onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))}
+                required
+              />
+            </Field>
+            <Field label="Full name">
+              <Input
+                placeholder="full name"
+                value={inviteForm.fullName}
+                onChange={(e) => setInviteForm((f) => ({ ...f, fullName: e.target.value }))}
+                required
+              />
+            </Field>
+            <Field label="Role">
+              <Select
+                value={inviteForm.roleCode}
+                onChange={(e) => setInviteForm((f) => ({ ...f, roleCode: e.target.value }))}
+              >
+                <option value="field_rn">field_rn</option>
+                <option value="intake_coordinator">intake_coordinator</option>
+                <option value="clinical_lead">clinical_lead</option>
+                <option value="billing">billing</option>
+                <option value="compliance">compliance</option>
+                <option value="admin">admin</option>
+              </Select>
+            </Field>
+            <Button type="submit" className="w-full">
+              Create invite
+            </Button>
+            {lastInviteToken && (
+              <Alert tone="success">
+                Dev invite token (copy to Accept invite page):{' '}
+                <code className="break-all text-xs">{lastInviteToken}</code>
+              </Alert>
+            )}
+          </form>
+
+          <div className="mt-6 border-t border-ink-100 pt-4">
+            <h3 className="ui-section-title mb-3">Recent invites</h3>
+            {invites.length === 0 ? (
+              <p className="text-sm text-ink-400">None yet</p>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {invites.map((i) => (
+                  <li key={i.id} className="flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                      {i.email} · {i.roleCode}
+                    </span>
+                    <Badge tone={statusTone(i.status)}>{i.status}</Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }

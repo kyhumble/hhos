@@ -1,6 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  PageHeader,
+  statusTone,
+} from '@/components/ui';
 import { getToken } from '@/lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -109,7 +120,6 @@ export default function RoutingPage() {
 
   async function seedMyProfile() {
     if (!token) return;
-    // Resolve self from /v1/me
     const meRes = await fetch(`${API_URL}/v1/me`, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -146,103 +156,111 @@ export default function RoutingPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Service AI — routing</h1>
-        <p className="text-sm text-slate-600">
-          Explainable suggestions only. Accept/reject required before assignment.
-        </p>
+    <div className="ui-page">
+      <PageHeader
+        eyebrow="Service AI"
+        title="Clinician routing"
+        description="Explainable suggestions only. Accept or reject is required before assignment."
+        actions={
+          <Button variant="secondary" size="sm" onClick={() => void seedMyProfile()}>
+            Seed my demo profile
+          </Button>
+        }
+      />
+
+      {error && <Alert tone="warn">{error}</Alert>}
+      {msg && <Alert tone="info">{msg}</Alert>}
+
+      <div className="grid gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-2">
+          <h2 className="ui-section-title mb-4">Generate suggestions</h2>
+          <div className="space-y-3">
+            <Field label="Episode ID" hint="UUID from intake or episode page">
+              <Input
+                className="font-mono text-xs"
+                value={episodeId}
+                onChange={(e) => setEpisodeId(e.target.value)}
+                placeholder="uuid from intake / episode page"
+              />
+            </Field>
+            <Button className="w-full" onClick={() => void generate()} disabled={!episodeId}>
+              Generate HITL suggestions
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="lg:col-span-3">
+          <h2 className="ui-section-title mb-3">Clinician profiles</h2>
+          {profiles.length === 0 ? (
+            <EmptyState
+              title="No profiles yet"
+              body="Seed your demo profile, then generate suggestions for an episode."
+            />
+          ) : (
+            <ul className="divide-y divide-ink-100">
+              {profiles.map((p) => (
+                <li key={p.userId} className="flex flex-wrap items-start justify-between gap-2 py-3 first:pt-0 last:pb-0">
+                  <div>
+                    <div className="font-medium text-ink-900">{p.fullName}</div>
+                    <div className="mt-0.5 text-xs text-ink-500">
+                      {(p.skillsJson ?? []).join(', ') || 'no skills'} · {p.homeBaseCity ?? '—'},{' '}
+                      {p.homeBaseState ?? '—'}
+                    </div>
+                  </div>
+                  <Badge tone={p.activeForRouting ? 'success' : 'neutral'}>
+                    {p.activeForRouting ? 'active' : 'inactive'}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
       </div>
 
-      {error && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">{error}</div>
-      )}
-      {msg && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">{msg}</div>
-      )}
-
-      <section className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
-        <h2 className="text-sm font-semibold">Clinician profiles</h2>
-        <button
-          type="button"
-          onClick={() => void seedMyProfile()}
-          className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
-        >
-          Save demo profile for me (Tulsa / wound_care)
-        </button>
-        <ul className="text-sm text-slate-700 space-y-1">
-          {profiles.map((p) => (
-            <li key={p.userId}>
-              <strong>{p.fullName}</strong> · {(p.skillsJson ?? []).join(', ') || 'no skills'} ·{' '}
-              {p.homeBaseCity ?? '—'}, {p.homeBaseState ?? '—'}
-              {!p.activeForRouting && ' (inactive)'}
-            </li>
-          ))}
-          {profiles.length === 0 && (
-            <li className="text-slate-500">No profiles yet — save yours above, then generate.</li>
-          )}
-        </ul>
-      </section>
-
-      <section className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
-        <h2 className="text-sm font-semibold">Generate suggestions</h2>
-        <label className="block text-sm">
-          Episode ID
-          <input
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs"
-            value={episodeId}
-            onChange={(e) => setEpisodeId(e.target.value)}
-            placeholder="uuid from intake / episode page"
-          />
-        </label>
-        <button
-          type="button"
-          onClick={() => void generate()}
-          className="rounded-lg bg-brand-700 px-3 py-2 text-sm text-white"
-        >
-          Generate HITL suggestions
-        </button>
-      </section>
-
-      <section className="space-y-3">
+      <div className="space-y-3">
+        <h2 className="ui-section-title">Suggestions</h2>
+        {suggestions.length === 0 && (
+          <Card>
+            <EmptyState
+              title="No suggestions yet"
+              body="Enter an episode ID and generate explainable routing matches."
+            />
+          </Card>
+        )}
         {suggestions.map((s) => (
-          <div key={s.id} className="rounded-xl border border-slate-200 bg-white p-4">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <div className="font-medium">
-                  {s.suggestedFullName ?? s.suggestedUserId} · score {s.scoreTotal}
+          <Card key={s.id}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-ink-900">
+                    {s.suggestedFullName ?? s.suggestedUserId}
+                  </span>
+                  <Badge tone="brand">score {s.scoreTotal}</Badge>
+                  <Badge tone={statusTone(s.status)}>{s.status}</Badge>
                 </div>
-                <div className="text-xs text-slate-500">
-                  {s.status} · episode {s.episodeId.slice(0, 8)}…
+                <div className="mt-1 font-mono text-[11px] text-ink-400">
+                  episode {s.episodeId.slice(0, 8)}…
                 </div>
-                <ul className="mt-2 list-inside list-disc text-xs text-slate-600">
+                <ul className="mt-2 list-inside list-disc text-xs text-ink-600">
                   {(s.scoreBreakdownJson?.explanations ?? []).map((e) => (
                     <li key={e}>{e}</li>
                   ))}
                 </ul>
               </div>
               {s.status === 'pending' && (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="rounded-lg bg-emerald-700 px-3 py-1.5 text-sm text-white"
-                    onClick={() => void decide(s.id, 'accepted')}
-                  >
+                <div className="flex shrink-0 gap-2">
+                  <Button size="sm" onClick={() => void decide(s.id, 'accepted')}>
                     Accept
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
-                    onClick={() => void decide(s.id, 'rejected')}
-                  >
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => void decide(s.id, 'rejected')}>
                     Reject
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
-          </div>
+          </Card>
         ))}
-      </section>
+      </div>
     </div>
   );
 }

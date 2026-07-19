@@ -2,6 +2,16 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import {
+  Alert,
+  Badge,
+  Button,
+  EmptyState,
+  Input,
+  PageHeader,
+  Select,
+  statusTone,
+} from '@/components/ui';
 import { API_URL, authHeaders, getToken, readApiError } from '@/lib/api';
 import {
   canReadClinicalTasks,
@@ -132,164 +142,141 @@ export default function ClinicalTasksPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold">Clinical task queue</h1>
-          <p className="text-sm text-slate-600">
-            HITL large-wound reviews and other clinical tasks. Completing a task never auto-cancels
-            from measurement changes.
-          </p>
-        </div>
-        <label className="text-sm">
-          Status
-          <select
-            className="ml-2 rounded-lg border border-slate-300 px-2 py-1.5"
+    <div className="ui-page">
+      <PageHeader
+        eyebrow="Clinical"
+        title="Clinical task queue"
+        description="HITL large-wound reviews and other clinical tasks. Completing a task never auto-cancels from measurement changes."
+        actions={
+          <Select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Status filter"
           >
             <option value="open">open</option>
             <option value="in_progress">in_progress</option>
             <option value="done">done</option>
             <option value="cancelled">cancelled</option>
             <option value="">all</option>
-          </select>
-        </label>
-      </div>
+          </Select>
+        }
+      />
 
-      {msg && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">{msg}</div>
-      )}
+      {msg && <Alert tone="success">{msg}</Alert>}
 
       {featureState === 'loading' && (
-        <p className="text-sm text-slate-500">Loading clinical tasks…</p>
+        <p className="text-sm text-ink-500">Loading clinical tasks…</p>
       )}
 
       {featureState === 'disabled' && (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-700">
-          <p className="font-medium">Wound photo / clinical tasks feature is not enabled</p>
-          <p className="mt-1 text-slate-600">
-            Set <code className="rounded bg-white px-1">FEATURE_WOUND_PHOTOS=true</code> on the API
-            to enable the clinical task queue.
-          </p>
-        </div>
+        <Alert tone="info">
+          Wound photo / clinical tasks feature is not enabled. Set{' '}
+          <code className="rounded bg-white/80 px-1">FEATURE_WOUND_PHOTOS=true</code> on the API.
+        </Alert>
       )}
 
       {featureState === 'forbidden' && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950">
-          <p className="font-medium">No access to clinical tasks</p>
-          <p className="mt-1">
-            Your role lacks <code className="rounded bg-white px-1">clinical_task:read</code>. Use a
-            clinical lead, compliance, or admin demo account (e.g. lead@demo.local).
-          </p>
-          <Link href="/login" className="mt-2 inline-block text-brand-700 hover:underline">
+        <Alert tone="warn">
+          No access to clinical tasks — needs <code className="rounded bg-white/80 px-1">clinical_task:read</code>.
+          Use lead@demo.local or similar.{' '}
+          <Link href="/login" className="ui-link">
             Switch account
           </Link>
-        </div>
+        </Alert>
       )}
 
       {error && featureState === 'error' && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+        <Alert tone="warn">
           {error}{' '}
           {!getToken() && (
-            <Link href="/login" className="underline">
+            <Link href="/login" className="ui-link">
               Login
             </Link>
           )}
-        </div>
+        </Alert>
       )}
 
       {featureState === 'ready' && (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+        <div className="ui-table-wrap">
+          <table className="ui-table">
+            <thead>
               <tr>
-                <th className="px-4 py-3">Task</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Priority</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Episode</th>
-                <th className="px-4 py-3">Created</th>
-                <th className="px-4 py-3">Actions</th>
+                <th>Task</th>
+                <th>Type</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Episode</th>
+                <th>Created</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {tasks.length === 0 && (
                 <tr>
-                  <td className="px-4 py-6 text-slate-500" colSpan={7}>
-                    No clinical tasks match this filter. Large-wound reviews appear after photos with
-                    measurements above threshold are completed.
+                  <td colSpan={7}>
+                    <EmptyState
+                      title="No clinical tasks match this filter"
+                      body="Large-wound reviews appear after photos with measurements above threshold are completed."
+                    />
                   </td>
                 </tr>
               )}
               {tasks.map((task) => (
-                <tr key={task.id} className="border-t border-slate-100 align-top">
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-slate-900">{task.title}</div>
+                <tr key={task.id} className="align-top">
+                  <td>
+                    <div className="font-medium text-ink-900">{task.title}</div>
                     {task.details && (
-                      <p className="mt-1 max-w-xs whitespace-pre-wrap text-xs text-slate-600">
+                      <p className="mt-1 max-w-xs whitespace-pre-wrap text-xs text-ink-500">
                         {task.details}
                       </p>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{task.taskType}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={
-                        task.priority === 'urgent'
-                          ? 'rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-800'
-                          : 'rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700'
-                      }
-                    >
+                  <td className="text-xs text-ink-500">{task.taskType}</td>
+                  <td>
+                    <Badge tone={task.priority === 'urgent' ? 'danger' : 'neutral'}>
                       {task.priority}
-                    </span>
+                    </Badge>
                   </td>
-                  <td className="px-4 py-3">
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">
-                      {task.status}
-                    </span>
+                  <td>
+                    <Badge tone={statusTone(task.status)}>{task.status}</Badge>
                   </td>
-                  <td className="px-4 py-3">
-                    <Link
-                      className="text-brand-700 hover:underline"
-                      href={`/episodes/${task.episodeId}`}
-                    >
+                  <td>
+                    <Link className="ui-link" href={`/episodes/${task.episodeId}`}>
                       Open episode
                     </Link>
                     {task.woundPhotoId && (
-                      <div className="mt-1 font-mono text-[10px] text-slate-400">
+                      <div className="mt-1 font-mono text-[10px] text-ink-400">
                         photo {task.woundPhotoId.slice(0, 8)}…
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="text-xs text-ink-500">
                     {new Date(task.createdAt).toLocaleString()}
                   </td>
-                  <td className="px-4 py-3">
+                  <td>
                     {(task.status === 'open' || task.status === 'in_progress') &&
                       canWriteClinicalTasks(user) && (
                         <div className="space-y-2">
-                          <input
-                            className="w-full min-w-[10rem] rounded border border-slate-300 px-2 py-1 text-xs"
+                          <Input
+                            className="min-w-[10rem] text-xs"
                             placeholder="Completion notes (optional)"
                             value={notes[task.id] ?? ''}
                             onChange={(e) =>
                               setNotes((n) => ({ ...n, [task.id]: e.target.value }))
                             }
                           />
-                          <button
-                            type="button"
+                          <Button
+                            size="sm"
                             disabled={completingId === task.id}
                             onClick={() => void completeTask(task.id)}
-                            className="rounded-lg bg-brand-700 px-2 py-1 text-xs font-medium text-white hover:bg-brand-900 disabled:opacity-50"
                           >
                             {completingId === task.id ? 'Completing…' : 'Complete'}
-                          </button>
+                          </Button>
                         </div>
                       )}
                     {(task.status === 'open' || task.status === 'in_progress') &&
                       !canWriteClinicalTasks(user) && (
-                        <span className="text-xs text-slate-500">Read-only</span>
+                        <span className="text-xs text-ink-400">Read-only</span>
                       )}
                   </td>
                 </tr>
