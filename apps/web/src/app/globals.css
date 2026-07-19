@@ -44,9 +44,22 @@ body {
   background: rgba(115, 129, 154, 0.55);
 }
 
+/* Custom motion — defined in CSS (not @apply) so Tailwind build always succeeds */
+@keyframes hhos-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @layer components {
   .ui-page {
-    @apply space-y-7 animate-fade-up;
+    @apply space-y-7;
+    animation: hhos-fade-up 0.4s ease-out both;
   }
 
   .ui-page-title {
