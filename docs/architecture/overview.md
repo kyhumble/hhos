@@ -30,4 +30,19 @@
 
 ## Related design
 
-Detailed Phase 0/1 design (ERD, consent engine, OpenAPI) lives in the session plan document approved prior to scaffold.
+| Doc | Scope |
+|-----|--------|
+| Session plan (pre-scaffold) | Phase 0/1 ERD, consent engine, OpenAPI sketch |
+| **[Phase 2 — Secure wound photos](./phase-2-secure-wound-photos.md)** | Camera-only capture, envelope crypto, offline outbox, dual S3, consent gates (K16), devices, annotations, clinical tasks |
+| **[Phase 2 KPIs](./phase-2-kpis.md)** | Operational metrics SQL (ids only — no PHI columns) |
+| `docs/compliance/threat-model-v0.md` | Baseline + photo pipeline threats |
+| `docs/domain/consent-purposes.md` | Purpose codes including `WOUND_PHOTO_CLINICAL` |
+
+### Phase 2 at a glance
+
+- **Mobile (prebuild / dev client):** app camera → AES-GCM encrypt → outbox → sync (register device → initiate → wrap-dek → presigned PUT → complete → wipe local secrets).  
+- **API:** caseload + `assertConsentPurpose` + `wound_photo:*` permissions; decrypt-proxy view only; orphan GC in-process.  
+- **Storage:** private bucket; `S3_ENDPOINT` (internal) vs `S3_PUBLIC_ENDPOINT` (presign Host).  
+- **Web:** episode metadata gallery + on-demand `/content`; clinical task queue.  
+
+Master flag: `FEATURE_WOUND_PHOTOS`. Photo KEK: `PHOTO_KEK` (never reuse `FIELD_ENCRYPTION_KEY`).

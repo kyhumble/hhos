@@ -27,3 +27,20 @@
 - [ ] Full RBAC enforcement on all routes (Phase 1)  
 - [ ] Field encryption helpers wired (Phase 1)  
 - [ ] RLS policies applied (Phase 1)  
+
+## Phase 2 photo pipeline (pre-pilot)
+
+- [x] Camera-only clinical capture (no gallery source of truth) — design + mobile path  
+- [x] Consent purpose `WOUND_PHOTO_CLINICAL` on capture/upload/view (`assertConsentPurpose`)  
+- [x] Encrypt-before-upload (client AES-GCM + server `PHOTO_KEK` envelope)  
+- [x] Private object storage; dual S3 endpoints; decrypt-proxy view  
+- [x] Device register required; revoke blocks photo ops  
+- [x] Post-revoke view policy **K16** (deny clinical; compliance break-glass + reason)  
+- [x] Billing has no `wound_photo:read`; content never accepts `document:read`  
+- [x] Threat model updated for photo pipeline (`docs/compliance/threat-model-v0.md`)  
+- [x] KPI definitions (ids only) (`docs/architecture/phase-2-kpis.md`)  
+- [ ] Counsel / Compliance Officer sign-off on consent template body  
+- [ ] AWS BAA + prod KMS/CMK for photo KEK  
+- [ ] Pen test / security review including mobile lost-device playbook  
+- [ ] Pilot with synthetic-only → limited real PHI only after BAAs  
+

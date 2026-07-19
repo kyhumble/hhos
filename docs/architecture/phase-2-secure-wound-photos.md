@@ -7,7 +7,7 @@
 | **Authors** | Systems architecture (agent-assisted design) |
 | **Date** | 2026-07-18 |
 | **Repo root** | `/Users/kyhumble/hhos` |
-| **Related** | `AGENTS.md`, `docs/architecture/overview.md`, `docs/domain/consent-purposes.md`, `docs/compliance/threat-model-v0.md` |
+| **Related** | `AGENTS.md`, `docs/architecture/overview.md`, `docs/architecture/phase-2-kpis.md`, `docs/domain/consent-purposes.md`, `docs/compliance/threat-model-v0.md` |
 
 ---
 
@@ -1169,6 +1169,8 @@ Update BAA inventory before prod PHI. Consent text NOT LEGAL FINAL.
 | Large-wound task open time | |
 | View rate by role | audit |
 | Decrypt busy / 503 rate | |
+
+**Ops detail (ids-only SQL, smoke checklist):** [`docs/architecture/phase-2-kpis.md`](./phase-2-kpis.md).
 
 ### Orphan GC (no Redis)
 

@@ -29,6 +29,12 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # API unit suite: photo crypto vectors, dual-S3 client construction (no live MinIO),
+      # wound-photo control plane, features, redact. Compose MinIO is for local smoke only —
+      # see README "CI & MinIO" and docs/architecture/phase-2-kpis.md.
+      - name: API unit tests
+        run: pnpm --filter @hhos/api test
+
       - name: Guard — no Cognito required in CI, but fail if prod secrets committed
         run: |
           if grep -R "BEGIN RSA PRIVATE KEY" --exclude-dir=node_modules --exclude-dir=.git . 2>/dev/null; then
