@@ -8,11 +8,16 @@ export default function HomePage() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card
           title="Intake worklist"
           body="Referral → checklist → consent → SOC readiness."
           href="/intake"
+        />
+        <Card
+          title="Clinical tasks"
+          body="Large-wound HITL queue for clinical leads."
+          href="/tasks"
         />
         <Card
           title="API health"

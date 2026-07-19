@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+import { API_URL } from '@/lib/api';
+import { storeSession, type SessionUser } from '@/lib/auth';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('coord@demo.local');
   const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<SessionUser | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -24,12 +25,14 @@ export default function LoginPage() {
       if (!res.ok || data.error) {
         setError(data.error?.message ?? 'Login failed');
         setToken(null);
+        setUser(null);
         return;
       }
-      setToken(data.accessToken as string);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('hhos_token', data.accessToken);
-      }
+      const accessToken = data.accessToken as string;
+      const sessionUser = data.user as SessionUser;
+      setToken(accessToken);
+      setUser(sessionUser);
+      storeSession(accessToken, sessionUser);
     } catch {
       setError('Could not reach API. Is @hhos/api running on :3001?');
     } finally {
@@ -72,11 +75,16 @@ export default function LoginPage() {
           {error}
         </div>
       )}
-      {token && (
+      {token && user && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-          Token stored in localStorage as <code>hhos_token</code>. Open{' '}
+          Signed in as <strong>{user.fullName}</strong> ({user.roles.join(', ')}). Token stored
+          as <code>hhos_token</code>. Open{' '}
           <a className="underline" href="/intake">
             Intake
+          </a>{' '}
+          or{' '}
+          <a className="underline" href="/tasks">
+            Clinical tasks
           </a>
           .
         </div>

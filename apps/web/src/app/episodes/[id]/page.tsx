@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+import { API_URL, authHeaders, getToken } from '@/lib/api';
+import { EpisodePhotoGallery } from '@/components/episode-photo-gallery';
 
 type ChecklistItem = {
   id: string;
@@ -68,11 +68,8 @@ export default function EpisodeDetailPage() {
     primaryDxIcd10: '',
   });
 
-  const token = () =>
-    typeof window !== 'undefined' ? window.localStorage.getItem('hhos_token') : null;
-
   const load = useCallback(async () => {
-    const t = token();
+    const t = getToken();
     if (!t) {
       setError('Not logged in. Use /login first.');
       return;
@@ -80,10 +77,10 @@ export default function EpisodeDetailPage() {
     try {
       const [epRes, tplRes] = await Promise.all([
         fetch(`${API_URL}/v1/episodes/${id}`, {
-          headers: { Authorization: `Bearer ${t}` },
+          headers: authHeaders(t),
         }),
         fetch(`${API_URL}/v1/consent-templates?locale=en`, {
-          headers: { Authorization: `Bearer ${t}` },
+          headers: authHeaders(t),
         }),
       ]);
       const epData = await epRes.json();
@@ -122,7 +119,7 @@ export default function EpisodeDetailPage() {
 
   async function saveEpisodePatch(e: React.FormEvent) {
     e.preventDefault();
-    const t = token();
+    const t = getToken();
     if (!t || !episode) return;
     setSaving(true);
     setMsg(null);
@@ -130,7 +127,7 @@ export default function EpisodeDetailPage() {
       const res = await fetch(`${API_URL}/v1/episodes/${id}`, {
         method: 'PATCH',
         headers: {
-          Authorization: `Bearer ${t}`,
+          ...authHeaders(t),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -155,7 +152,7 @@ export default function EpisodeDetailPage() {
 
   async function captureConsent(e: React.FormEvent) {
     e.preventDefault();
-    const t = token();
+    const t = getToken();
     if (!t || !episode) return;
     setSaving(true);
     setMsg(null);
@@ -163,7 +160,7 @@ export default function EpisodeDetailPage() {
       const res = await fetch(`${API_URL}/v1/patients/${episode.patientId}/consents`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${t}`,
+          ...authHeaders(t),
           'Content-Type': 'application/json',
           'Idempotency-Key': `${consentIdempotencyKey}-${consentForm.templateId}`,
         },
@@ -241,6 +238,8 @@ export default function EpisodeDetailPage() {
       {msg && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">{msg}</div>
       )}
+
+      <EpisodePhotoGallery episodeId={episode.id} />
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="font-medium">Intake checklist</h2>

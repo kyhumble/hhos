@@ -29,6 +29,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <a className="hover:text-brand-700" href="/intake">
                   Intake
                 </a>
+                <a className="hover:text-brand-700" href="/tasks">
+                  Tasks
+                </a>
                 <a className="hover:text-brand-700" href="/login">
                   Login
                 </a>
