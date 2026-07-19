@@ -4,90 +4,115 @@
 
 :root {
   color-scheme: light;
-  --sidebar-width: 15.5rem;
+  --sidebar-width: 16.5rem;
   --surface: #ffffff;
-  --canvas: #f4f6f9;
-  --ring: #1a75f5;
+  --canvas: #f3f5f8;
+  --ring: #0c89ea;
+  --header-h: 3.75rem;
 }
 
-html,
-body {
+html {
   height: 100%;
+  scroll-behavior: smooth;
 }
 
 body {
-  @apply bg-[var(--canvas)] text-ink-900 antialiased font-sans;
-  background-image:
-    radial-gradient(ellipse 80% 50% at 0% -20%, rgba(51, 150, 255, 0.08), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(20, 94, 225, 0.05), transparent);
+  min-height: 100%;
+  @apply bg-canvas text-ink-900 antialiased font-sans;
+  background-image: theme('backgroundImage.mesh-light');
   background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Selection */
+::selection {
+  background: rgba(12, 137, 234, 0.18);
+  color: #07274a;
+}
+
+/* Scrollbars (webkit) */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(115, 129, 154, 0.35);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(115, 129, 154, 0.55);
 }
 
 @layer components {
   .ui-page {
-    @apply space-y-6;
+    @apply space-y-7 animate-fade-up;
   }
 
   .ui-page-title {
-    @apply text-2xl font-semibold tracking-tight text-ink-950;
+    @apply font-display text-[1.65rem] font-semibold leading-tight tracking-tight text-ink-950 sm:text-[1.85rem];
   }
 
   .ui-page-desc {
-    @apply mt-1 max-w-2xl text-sm leading-relaxed text-ink-500;
+    @apply mt-1.5 max-w-2xl text-[0.9375rem] leading-relaxed text-ink-500;
   }
 
   .ui-card {
-    @apply rounded-2xl border border-ink-200/80 bg-white shadow-soft;
+    @apply rounded-2xl border border-ink-200/70 bg-white shadow-soft;
   }
 
   .ui-card-pad {
     @apply ui-card p-5 sm:p-6;
   }
 
+  .ui-card-interactive {
+    @apply ui-card-pad transition duration-200 hover:-translate-y-0.5 hover:border-brand-300/80 hover:shadow-lift;
+  }
+
   .ui-label {
-    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500;
+    @apply mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-500;
   }
 
   .ui-input {
     @apply w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-900
       shadow-sm outline-none transition
       placeholder:text-ink-400
-      focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20;
+      focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15;
   }
 
   .ui-select {
     @apply ui-input appearance-none bg-[length:1rem] bg-[right_0.75rem_center] bg-no-repeat pr-10;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2366768e'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2373819a'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
   }
 
   .ui-btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-semibold
-      transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40
-      disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+      transition duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/25
+      disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98];
   }
 
   .ui-btn-primary {
-    @apply ui-btn bg-brand-700 text-white shadow-sm hover:bg-brand-800 active:bg-brand-900;
+    @apply ui-btn bg-brand-600 text-white shadow-glow hover:bg-brand-700;
   }
 
   .ui-btn-secondary {
-    @apply ui-btn border border-ink-200 bg-white text-ink-800 shadow-sm hover:bg-ink-50 hover:border-ink-300;
+    @apply ui-btn border border-ink-200 bg-white text-ink-800 shadow-sm hover:border-ink-300 hover:bg-ink-50;
   }
 
   .ui-btn-ghost {
-    @apply ui-btn text-ink-600 hover:bg-ink-100/80 hover:text-ink-900;
+    @apply ui-btn text-ink-600 hover:bg-ink-100/90 hover:text-ink-900;
   }
 
   .ui-btn-danger {
-    @apply ui-btn bg-red-700 text-white hover:bg-red-800;
+    @apply ui-btn bg-red-600 text-white shadow-sm hover:bg-red-700 focus-visible:ring-red-500/25;
   }
 
   .ui-btn-sm {
-    @apply px-2.5 py-1.5 text-xs;
+    @apply px-2.5 py-1.5 text-xs rounded-lg;
   }
 
   .ui-badge {
-    @apply inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide;
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em];
   }
 
   .ui-badge-neutral {
@@ -111,23 +136,23 @@ body {
   }
 
   .ui-alert {
-    @apply rounded-xl border px-4 py-3 text-sm leading-relaxed;
+    @apply rounded-2xl border px-4 py-3.5 text-sm leading-relaxed shadow-sm;
   }
 
   .ui-alert-info {
-    @apply ui-alert border-brand-200 bg-brand-50 text-brand-950;
+    @apply ui-alert border-brand-200/80 bg-gradient-to-r from-brand-50 to-white text-brand-950;
   }
 
   .ui-alert-warn {
-    @apply ui-alert border-amber-200 bg-amber-50 text-amber-950;
+    @apply ui-alert border-amber-200/80 bg-gradient-to-r from-amber-50 to-white text-amber-950;
   }
 
   .ui-alert-error {
-    @apply ui-alert border-red-200 bg-red-50 text-red-900;
+    @apply ui-alert border-red-200/80 bg-gradient-to-r from-red-50 to-white text-red-900;
   }
 
   .ui-alert-success {
-    @apply ui-alert border-emerald-200 bg-emerald-50 text-emerald-950;
+    @apply ui-alert border-emerald-200/80 bg-gradient-to-r from-emerald-50 to-white text-emerald-950;
   }
 
   .ui-table-wrap {
@@ -139,23 +164,23 @@ body {
   }
 
   .ui-table thead {
-    @apply bg-ink-50/90 text-[11px] font-semibold uppercase tracking-wider text-ink-500;
+    @apply bg-gradient-to-b from-ink-50 to-ink-50/60 text-[11px] font-bold uppercase tracking-[0.08em] text-ink-500;
   }
 
   .ui-table th {
-    @apply px-4 py-3;
+    @apply px-4 py-3.5 first:pl-5 last:pr-5;
   }
 
   .ui-table tbody tr {
-    @apply border-t border-ink-100 transition hover:bg-brand-50/40;
+    @apply border-t border-ink-100/90 transition hover:bg-brand-50/50;
   }
 
   .ui-table td {
-    @apply px-4 py-3 text-ink-800;
+    @apply px-4 py-3.5 text-ink-800 first:pl-5 last:pr-5;
   }
 
   .ui-section-title {
-    @apply text-sm font-semibold text-ink-900;
+    @apply font-display text-sm font-semibold tracking-tight text-ink-900;
   }
 
   .ui-muted {
@@ -163,6 +188,28 @@ body {
   }
 
   .ui-link {
-    @apply font-medium text-brand-700 underline-offset-2 hover:text-brand-800 hover:underline;
+    @apply font-semibold text-brand-700 underline-offset-2 transition hover:text-brand-800 hover:underline;
+  }
+
+  .ui-stat {
+    @apply ui-card-pad relative overflow-hidden;
+  }
+
+  .ui-stat::after {
+    content: '';
+    @apply pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-[0.07];
+    background: radial-gradient(circle, theme('colors.brand.500'), transparent 70%);
+  }
+
+  .ui-kicker {
+    @apply text-[11px] font-bold uppercase tracking-[0.14em] text-brand-600;
+  }
+
+  .ui-divider {
+    @apply border-t border-ink-100;
+  }
+
+  .ui-chip {
+    @apply inline-flex items-center rounded-lg bg-ink-100/80 px-2 py-1 text-[11px] font-medium text-ink-600;
   }
 }
