@@ -9,7 +9,10 @@ export const SecureKeys = {
   consentGrant: (patientId: string) => `hhos.consent-grant.${patientId}`,
   /** Per pending photo DEK — used in PR 9+. */
   photoDek: (clientPhotoId: string) => `hhos.photo-dek.${clientPhotoId}`,
-  /** Per in-flight annotation DEK — used later. */
+  /**
+   * Per in-flight annotation child DEK (PR 11, online-only).
+   * Wiped after annotation complete; never queued offline (no annotation_outbox).
+   */
   annotDek: (clientAnnotationId: string) =>
     `hhos.annot-dek.${clientAnnotationId}`,
 } as const;

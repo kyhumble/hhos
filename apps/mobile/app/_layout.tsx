@@ -32,6 +32,11 @@ export default function RootLayout() {
           name="capture"
           options={{ title: 'Wound photo capture' }}
         />
+        <Stack.Screen name="photos" options={{ title: 'Wound photos' }} />
+        <Stack.Screen
+          name="photo-review"
+          options={{ title: 'Measure & annotate' }}
+        />
       </Stack>
     </>
   );
