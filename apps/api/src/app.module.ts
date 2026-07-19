@@ -18,6 +18,7 @@ import { OrgsModule } from './orgs/orgs.module';
 import { OrdersModule } from './orders/orders.module';
 import { HospiceModule } from './hospice/hospice.module';
 import { BillingModule } from './billing/billing.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { DbModule } from './common/db.module';
 import { CommonDomainModule } from './common/common.module';
 import { StorageModule } from './storage/storage.module';
@@ -29,6 +30,7 @@ import { PhotoCryptoModule } from './photo-crypto/photo-crypto.module';
     CommonDomainModule,
     StorageModule,
     PhotoCryptoModule,
+    NotificationsModule,
     HealthModule,
     AuthModule,
     AuditModule,

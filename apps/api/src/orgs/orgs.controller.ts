@@ -88,6 +88,18 @@ export class OrgsController {
     return this.orgs.invite(user, body as never, requestMeta(req));
   }
 
+  @Post('orgs/me/invites/:id/resend')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.USER_ADMIN)
+  resendInvite(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Req() req: { headers: Record<string, string | string[] | undefined>; ip?: string },
+  ) {
+    return this.orgs.resendInvite(user, id, requestMeta(req));
+  }
+
   @Get('invites/peek')
   peek(@Query('token') token?: string) {
     if (!token) {

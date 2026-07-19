@@ -31,6 +31,10 @@ import * as jwt from 'jsonwebtoken';
 import { DB } from '../common/db.module';
 import type { AuthUser } from '../common/auth.types';
 import { AuditService } from '../audit/audit.service';
+import {
+  NotificationsService,
+  shouldExposeTokens,
+} from '../notifications/notifications.service';
 import { bootstrapOrgRoles, ensureGlobalPermissions } from './org-bootstrap';
 
 function sha256(text: string): string {
@@ -78,6 +82,7 @@ export class OrgsService {
   constructor(
     @Inject(DB) private readonly db: HhosDb,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async getOrgSettings(orgId: string): Promise<OrgSettingsJson> {
@@ -472,6 +477,24 @@ export class OrgsService {
       return invite!;
     });
 
+    const [org] = await this.db
+      .select({ name: organizations.name })
+      .from(organizations)
+      .where(eq(organizations.id, user.orgId))
+      .limit(1);
+
+    const delivery = await this.notifications.sendOrgInvite({
+      orgId: user.orgId,
+      inviteId: invited.id,
+      to: email,
+      orgName: org?.name ?? 'HHOS agency',
+      roleCode: invited.roleCode,
+      rawToken,
+      expiresAt,
+      actorUserId: user.id,
+    });
+
+    const expose = shouldExposeTokens() || delivery.status === 'failed';
     return {
       invite: {
         id: invited.id,
@@ -481,10 +504,92 @@ export class OrgsService {
         status: invited.status,
         expiresAt: invited.expiresAt,
       },
-      /** Dev-only: surface token for console accept (email provider later). */
-      inviteToken: rawToken,
+      delivery,
+      ...(expose
+        ? {
+            inviteToken: rawToken,
+            note:
+              delivery.status === 'failed'
+                ? 'Email delivery failed — copy inviteToken to Accept invite page.'
+                : 'Local/console mode — copy inviteToken to Accept invite page.',
+          }
+        : {
+            note: `Invite email ${delivery.status} via ${this.notifications.providerName()}.`,
+          }),
       acceptPath: `/v1/invites/accept`,
-      note: 'Email delivery not configured — copy inviteToken to accept flow (synthetic/dev).',
+    };
+  }
+
+  /** Rotate token and re-send invite email. */
+  async resendInvite(
+    user: AuthUser,
+    inviteId: string,
+    meta: { requestId?: string; ip?: string; userAgent?: string },
+  ) {
+    const [row] = await this.db
+      .select()
+      .from(orgInvites)
+      .where(and(eq(orgInvites.id, inviteId), eq(orgInvites.orgId, user.orgId)))
+      .limit(1);
+    if (!row) {
+      throw new NotFoundException({
+        error: { code: 'NOT_FOUND', message: 'Invite not found' },
+      });
+    }
+    if (row.status !== 'pending') {
+      throw new BadRequestException({
+        error: { code: 'INVITE_NOT_PENDING', message: `Invite is ${row.status}` },
+      });
+    }
+
+    const rawToken = randomBytes(32).toString('base64url');
+    const tokenHash = sha256(rawToken);
+    const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+
+    await this.db
+      .update(orgInvites)
+      .set({ tokenHash, expiresAt })
+      .where(eq(orgInvites.id, inviteId));
+
+    const [org] = await this.db
+      .select({ name: organizations.name })
+      .from(organizations)
+      .where(eq(organizations.id, user.orgId))
+      .limit(1);
+
+    const delivery = await this.notifications.sendOrgInvite({
+      orgId: user.orgId,
+      inviteId,
+      to: row.email,
+      orgName: org?.name ?? 'HHOS agency',
+      roleCode: row.roleCode,
+      rawToken,
+      expiresAt,
+      actorUserId: user.id,
+    });
+
+    await this.audit.writeFromUser(user, {
+      action: 'org.invite.resend',
+      resourceType: 'org_invite',
+      resourceId: inviteId,
+      after: { deliveryId: delivery.id, status: delivery.status },
+      requestId: meta.requestId,
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+    });
+
+    const expose = shouldExposeTokens() || delivery.status === 'failed';
+    return {
+      invite: {
+        id: row.id,
+        email: row.email,
+        fullName: row.fullName,
+        roleCode: row.roleCode,
+        status: row.status,
+        expiresAt,
+      },
+      delivery,
+      ...(expose ? { inviteToken: rawToken } : {}),
     };
   }
 

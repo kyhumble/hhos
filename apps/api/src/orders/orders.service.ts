@@ -29,13 +29,17 @@ import type { AuthUser } from '../common/auth.types';
 import { fieldRnCanAccessEpisode, isFieldRnScoped } from '../common/caseload';
 import { isOrdersEsignEnabled } from '../common/features';
 import { AuditService } from '../audit/audit.service';
+import {
+  NotificationsService,
+  shouldExposeTokens,
+} from '../notifications/notifications.service';
 import { ObjectStorageService } from '../storage/object-storage.service';
 
 function sha256(text: string): string {
   return createHash('sha256').update(text, 'utf8').digest('hex');
 }
 
-function patientInitials(first: string, last: string): string {
+function patientInitialsFrom(first: string, last: string): string {
   const f = first?.trim()?.[0] ?? '?';
   const l = last?.trim()?.[0] ?? '?';
   return `${f}${l}`.toUpperCase();
@@ -47,6 +51,7 @@ export class OrdersService {
     @Inject(DB) private readonly db: HhosDb,
     private readonly audit: AuditService,
     private readonly storage: ObjectStorageService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private async ensureFeature(user: AuthUser): Promise<void> {
@@ -510,15 +515,77 @@ export class OrdersService {
 
     const webBase =
       process.env.WEB_PUBLIC_URL?.replace(/\/$/, '') ?? 'http://localhost:3000';
+    const signUrl = `${webBase}/sign/${rawToken}`;
 
+    const [org] = await this.db
+      .select({ name: organizations.name })
+      .from(organizations)
+      .where(eq(organizations.id, user.orgId))
+      .limit(1);
+
+    let patientInitials: string | undefined;
+    let dobYear: number | null = null;
+    if (pkg.patientId) {
+      const [p] = await this.db
+        .select({
+          firstName: patients.firstName,
+          lastName: patients.lastName,
+          dob: patients.dob,
+        })
+        .from(patients)
+        .where(eq(patients.id, pkg.patientId))
+        .limit(1);
+      if (p) {
+        patientInitials = patientInitialsFrom(p.firstName, p.lastName);
+        if (p.dob) {
+          const y = Number(String(p.dob).slice(0, 4));
+          dobYear = Number.isFinite(y) ? y : null;
+        }
+      }
+    }
+
+    const physicianEmail = pkg.physicianEmail?.trim();
+    if (!physicianEmail) {
+      throw new BadRequestException({
+        error: {
+          code: 'PHYSICIAN_EMAIL_REQUIRED',
+          message: 'Package needs physicianEmail before send',
+        },
+      });
+    }
+
+    const delivery = await this.notifications.sendPhysicianSign({
+      orgId: user.orgId,
+      signatureRequestId: result.request.id,
+      to: physicianEmail,
+      orgName: org?.name ?? 'HHOS agency',
+      docType: pkg.docType,
+      physicianName: pkg.physicianName,
+      patientInitials,
+      dobYear,
+      rawToken,
+      expiresAt,
+      actorUserId: user.id,
+    });
+
+    const expose = shouldExposeTokens() || delivery.status === 'failed';
     return {
       package: result.package,
       signatureRequestId: result.request.id,
       expiresAt: result.request.expiresAt,
-      /** Dev: staff copies link to physician until email provider is BAAd. */
-      signUrl: `${webBase}/sign/${rawToken}`,
-      signToken: rawToken,
-      note: 'Email/SMS delivery not configured — share signUrl with the provider (synthetic/dev).',
+      delivery,
+      ...(expose
+        ? {
+            signUrl,
+            signToken: rawToken,
+            note:
+              delivery.status === 'failed'
+                ? 'Email delivery failed — share signUrl with the provider.'
+                : 'Local/console mode — share signUrl with the provider.',
+          }
+        : {
+            note: `Sign link email ${delivery.status} via ${this.notifications.providerName()}.`,
+          }),
     };
   }
 
@@ -675,7 +742,7 @@ export class OrdersService {
     return {
       data: rows.map((r) => ({
         ...r.package,
-        patientLabel: `${patientInitials(r.patientFirst, r.patientLast)}`,
+        patientLabel: `${patientInitialsFrom(r.patientFirst, r.patientLast)}`,
         overdue:
           r.package.dueAt != null &&
           r.package.dueAt.getTime() < Date.now() &&
@@ -775,7 +842,7 @@ export class OrdersService {
       docType: row.pkg.docType,
       title: row.pkg.title,
       physicianName: row.pkg.physicianName,
-      patientInitials: patientInitials(row.patientFirst, row.patientLast),
+      patientInitials: patientInitialsFrom(row.patientFirst, row.patientLast),
       patientDobYear: dobYear,
       noteToPhysician: row.request.noteToPhysician,
       status: row.request.status === 'pending' ? 'viewed' : row.request.status,

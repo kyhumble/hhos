@@ -8,7 +8,7 @@
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"no lint configured\"",
-    "test": "tsx --test src/common/redact.spec.ts src/common/features.spec.ts src/consents/assert-consent-purpose.spec.ts src/audit/audit.service.spec.ts src/devices/devices.service.spec.ts src/photo-crypto/*.spec.ts src/storage/*.spec.ts src/wound-photos/*.spec.ts src/clinical-tasks/*.spec.ts"
+    "test": "tsx --test src/common/redact.spec.ts src/common/features.spec.ts src/common/boot-guards.spec.ts src/consents/assert-consent-purpose.spec.ts src/audit/audit.service.spec.ts src/devices/devices.service.spec.ts src/photo-crypto/*.spec.ts src/storage/*.spec.ts src/wound-photos/*.spec.ts src/clinical-tasks/*.spec.ts src/notifications/templates/templates.spec.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.758.0",

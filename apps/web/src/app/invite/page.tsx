@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Alert, Button, Card, Field, Input, PageHeader } from '@/components/ui';
 import { storeSession, type SessionUser } from '@/lib/auth';
@@ -17,6 +17,12 @@ export default function AcceptInvitePage() {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const q = new URLSearchParams(window.location.search).get('token');
+    if (q) setToken(q);
+  }, []);
 
   async function doPeek() {
     setError(null);

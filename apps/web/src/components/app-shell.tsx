@@ -2,24 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { clearSession, getStoredUser, type SessionUser } from '@/lib/auth';
-
-type NavItem = { href: string; label: string; group: string };
-
-const NAV: NavItem[] = [
-  { href: '/', label: 'Dashboard', group: 'Overview' },
-  { href: '/intake', label: 'Intake', group: 'Clinical' },
-  { href: '/oasis', label: 'OASIS', group: 'Clinical' },
-  { href: '/tasks', label: 'Clinical tasks', group: 'Clinical' },
-  { href: '/routing', label: 'Routing', group: 'Operations' },
-  { href: '/field-tasks', label: 'Field tasks', group: 'Operations' },
-  { href: '/orders', label: 'Orders / 485', group: 'Compliance' },
-  { href: '/hospice', label: 'Hospice', group: 'Compliance' },
-  { href: '/billing', label: 'Billing', group: 'Revenue' },
-  { href: '/admin', label: 'Org admin', group: 'Platform' },
-  { href: '/onboard', label: 'New agency', group: 'Platform' },
-];
+import { navForUser } from '@/lib/nav';
 
 function navActive(pathname: string, href: string) {
   if (href === '/') return pathname === '/';
@@ -30,7 +15,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [user, setUser] = useState<SessionUser | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const bare = pathname.startsWith('/sign/') || pathname === '/login';
+  const bare =
+    pathname.startsWith('/sign/') || pathname === '/login' || pathname === '/invite';
 
   useEffect(() => {
     setUser(getStoredUser());
@@ -40,11 +26,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setMobileOpen(false);
   }, [pathname]);
 
+  const nav = useMemo(() => navForUser(user), [user]);
+  const groups = useMemo(() => [...new Set(nav.map((n) => n.group))], [nav]);
+
   if (bare) {
     return <div className="min-h-screen">{children}</div>;
   }
-
-  const groups = [...new Set(NAV.map((n) => n.group))];
 
   function logout() {
     clearSession();
@@ -71,28 +58,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {group}
             </div>
             <ul className="space-y-0.5">
-              {NAV.filter((n) => n.group === group).map((item) => {
-                const active = navActive(pathname, item.href);
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={`flex items-center rounded-xl px-3 py-2 text-sm font-medium transition ${
-                        active
-                          ? 'bg-white/12 text-white shadow-sm ring-1 ring-white/10'
-                          : 'text-brand-100/75 hover:bg-white/6 hover:text-white'
-                      }`}
-                    >
-                      <span
-                        className={`mr-2.5 h-1.5 w-1.5 rounded-full ${
-                          active ? 'bg-brand-300' : 'bg-brand-400/30'
+              {nav
+                .filter((n) => n.group === group)
+                .map((item) => {
+                  const active = navActive(pathname, item.href);
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={`flex items-center rounded-xl px-3 py-2 text-sm font-medium transition ${
+                          active
+                            ? 'bg-white/12 text-white shadow-sm ring-1 ring-white/10'
+                            : 'text-brand-100/75 hover:bg-white/6 hover:text-white'
                         }`}
-                      />
-                      {item.label}
-                    </Link>
-                  </li>
-                );
-              })}
+                      >
+                        <span
+                          className={`mr-2.5 h-1.5 w-1.5 rounded-full ${
+                            active ? 'bg-brand-300' : 'bg-brand-400/30'
+                          }`}
+                        />
+                        {item.label}
+                      </Link>
+                    </li>
+                  );
+                })}
             </ul>
           </div>
         ))}
@@ -138,12 +127,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen lg:flex">
-      {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-screen w-[var(--sidebar-width)] shrink-0 bg-gradient-to-b from-ink-950 via-brand-950 to-ink-950 lg:block">
         {sidebar}
       </aside>
 
-      {/* Mobile drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button

@@ -147,8 +147,28 @@ export default function AdminOrgPage() {
       return;
     }
     setLastInviteToken(data.inviteToken ?? null);
-    setMsg(`Invited ${data.invite?.email} as ${data.invite?.roleCode}`);
+    const deliveryNote = data.delivery ? ` · email ${data.delivery.status}` : '';
+    setMsg(`Invited ${data.invite?.email} as ${data.invite?.roleCode}${deliveryNote}`);
     setInviteForm({ email: '', fullName: '', roleCode: 'field_rn' });
+    await load();
+  }
+
+  async function resendInvite(id: string) {
+    if (!token) return;
+    setLastInviteToken(null);
+    const res = await fetch(`${API_URL}/v1/orgs/me/invites/${id}/resend`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setMsg(data.error?.message ?? 'Resend failed');
+      return;
+    }
+    setLastInviteToken(data.inviteToken ?? null);
+    setMsg(
+      `Resent invite to ${data.invite?.email}${data.delivery ? ` · ${data.delivery.status}` : ''}`,
+    );
     await load();
   }
 
@@ -335,7 +355,18 @@ export default function AdminOrgPage() {
                     <span>
                       {i.email} · {i.roleCode}
                     </span>
-                    <Badge tone={statusTone(i.status)}>{i.status}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge tone={statusTone(i.status)}>{i.status}</Badge>
+                      {i.status === 'pending' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => void resendInvite(i.id)}
+                        >
+                          Resend
+                        </Button>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
