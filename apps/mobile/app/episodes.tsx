@@ -122,6 +122,22 @@ export default function EpisodesScreen() {
                 Wound photo capture (consent-gated)
               </Text>
             </Pressable>
+            <Pressable
+              style={styles.photosBtn}
+              onPress={() =>
+                router.push({
+                  pathname: '/photos',
+                  params: {
+                    patientId: item.patientId,
+                    episodeId: item.id,
+                  },
+                })
+              }
+            >
+              <Text style={styles.photosBtnText}>
+                Photos · measure & annotate
+              </Text>
+            </Pressable>
           </View>
         )}
       />
@@ -159,4 +175,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   captureBtnText: { color: '#0369a1', fontWeight: '600', fontSize: 13 },
+  photosBtn: {
+    marginTop: 8,
+    backgroundColor: '#f0fdf4',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  photosBtnText: { color: '#047857', fontWeight: '600', fontSize: 13 },
 });
