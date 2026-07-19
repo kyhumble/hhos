@@ -39,6 +39,7 @@
 | **[Phase 3 — OASIS-E2 / PDGM](./phase-3-oasis-e2-pdgm.md)** | Versioned item subset, assessment lifecycle, advisory LUPA/PDGM flags, clinical lead lock |
 | **[Phase 4 — Service AI / routing](./phase-4-service-ai-routing.md)** | HITL route suggestions, visit tasks, hospitalization alerts (`FEATURE_SERVICE_AI`) |
 | **[Multi-tenant](./multi-tenant.md)** | Org create, invites, per-org settings/flags; RLS/KMS still future |
+| **[Phase 5 — Orders / 485 e-sign](./phase-5-orders-esign.md)** | POC-485, orders, F2F, hospice cert packages; physician magic-link sign (`FEATURE_ORDERS_ESIGN`) |
 | `docs/compliance/threat-model-v0.md` | Baseline + photo pipeline threats |
 | `docs/domain/consent-purposes.md` | Purpose codes including `WOUND_PHOTO_CLINICAL` |
 

@@ -60,7 +60,8 @@ Compliance is non-negotiable. Treat every change as potentially surveyor-visible
 - **Phase 3:** OASIS-E2 subset + PDGM/LUPA advisory (FEATURE_OASIS); never auto-lock billing
 - **Phase 4:** Service AI routing HITL only (FEATURE_SERVICE_AI); never auto-assign without accept
 - **Multi-tenant:** Every PHI/domain row has `org_id`; filter by `user.orgId`; new tables must be tenant-scoped. Org settings + invites live under `/v1/orgs/*`. Platform env flags are kill switches; org `settings.features` can disable modules per agency.
-- **Phase 5+:** Billing, portals, longevity modules; Postgres RLS before real PHI
+- **Phase 5:** Orders / 485 / physician e-sign (`FEATURE_ORDERS_ESIGN`); never auto-sign; magic-link tokens hashed at rest
+- **Phase 6+:** Hospice clinical core, billing export; Postgres RLS before real PHI. **No longevity modules** (home health + hospice only).
 
 ## Security notes for agents
 

@@ -41,6 +41,10 @@ export const Permission = {
   VISIT_TASK_WRITE: 'visit_task:write',
   ALERT_READ: 'alert:read',
   ALERT_WRITE: 'alert:write',
+  // Phase 5 — orders / 485 / physician e-sign
+  ORDER_READ: 'order:read',
+  ORDER_WRITE: 'order:write',
+  ORDER_SEND: 'order:send',
 } as const;
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission];
@@ -73,6 +77,7 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.VISIT_TASK_WRITE,
     R.ROUTING_READ,
     R.ALERT_READ,
+    R.ORDER_READ,
   ],
   intake_coordinator: [
     R.PATIENT_READ,
@@ -98,6 +103,9 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.VISIT_TASK_WRITE,
     R.ALERT_READ,
     R.ALERT_WRITE,
+    R.ORDER_READ,
+    R.ORDER_WRITE,
+    R.ORDER_SEND,
   ],
   clinical_lead: [
     R.PATIENT_READ,
@@ -133,6 +141,9 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.VISIT_TASK_WRITE,
     R.ALERT_READ,
     R.ALERT_WRITE,
+    R.ORDER_READ,
+    R.ORDER_WRITE,
+    R.ORDER_SEND,
   ],
   billing: [
     R.PATIENT_READ,
@@ -146,6 +157,7 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.ROUTING_READ,
     R.VISIT_TASK_READ,
     R.ALERT_READ,
+    R.ORDER_READ,
   ],
   compliance: [
     R.PATIENT_READ,
@@ -165,6 +177,7 @@ export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
     R.VISIT_TASK_READ,
     R.ALERT_READ,
     R.ALERT_WRITE,
+    R.ORDER_READ,
   ],
   admin: [...ALL_PERMISSIONS],
 };

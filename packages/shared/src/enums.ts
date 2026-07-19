@@ -389,3 +389,46 @@ export const HospitalizationAlertStatus = [
   'false_positive',
 ] as const;
 export type HospitalizationAlertStatus = (typeof HospitalizationAlertStatus)[number];
+
+// ─── Phase 5: orders / 485 / physician e-sign ───────────────────────────────
+
+/** Clinical document types that require physician (or NPP) signature. */
+export const OrderDocType = [
+  'plan_of_care_485',
+  'physician_order',
+  'verbal_order',
+  'f2f_encounter',
+  'hospice_cert',
+  'hospice_recert',
+  'other',
+] as const;
+export type OrderDocType = (typeof OrderDocType)[number];
+
+export const OrderPackageStatus = [
+  'draft',
+  'ready',
+  'sent',
+  'viewed',
+  'signed',
+  'rejected',
+  'expired',
+  'void',
+] as const;
+export type OrderPackageStatus = (typeof OrderPackageStatus)[number];
+
+export const SignatureRequestStatus = [
+  'pending',
+  'viewed',
+  'signed',
+  'rejected',
+  'expired',
+  'revoked',
+] as const;
+export type SignatureRequestStatus = (typeof SignatureRequestStatus)[number];
+
+export const SignatureMethod = [
+  'esign_portal',
+  'wet_ink_scan',
+  'external_attested',
+] as const;
+export type SignatureMethod = (typeof SignatureMethod)[number];

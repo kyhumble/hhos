@@ -87,6 +87,7 @@ async function main() {
       woundPhotos: true,
       oasis: true,
       serviceAi: true,
+      ordersEsign: true,
     },
   };
 

@@ -11,6 +11,7 @@ export type OrgFeatureSlice = {
     woundPhotos?: boolean;
     oasis?: boolean;
     serviceAi?: boolean;
+    ordersEsign?: boolean;
   };
 } | null | undefined;
 
@@ -54,6 +55,15 @@ export function isServiceAiEnabled(org?: OrgFeatureSlice): boolean {
   return isFeatureEnabledForOrg(
     'FEATURE_SERVICE_AI',
     org?.features?.serviceAi,
+    false,
+  );
+}
+
+/** Orders / 485 / physician e-sign workflow. */
+export function isOrdersEsignEnabled(org?: OrgFeatureSlice): boolean {
+  return isFeatureEnabledForOrg(
+    'FEATURE_ORDERS_ESIGN',
+    org?.features?.ordersEsign,
     false,
   );
 }

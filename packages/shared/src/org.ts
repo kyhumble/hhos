@@ -6,6 +6,7 @@ export const OrgFeatureFlagsSchema = z.object({
   woundPhotos: z.boolean().optional(),
   oasis: z.boolean().optional(),
   serviceAi: z.boolean().optional(),
+  ordersEsign: z.boolean().optional(),
 });
 export type OrgFeatureFlags = z.infer<typeof OrgFeatureFlagsSchema>;
 
@@ -101,5 +102,6 @@ export const DEFAULT_ORG_SETTINGS: Required<
     woundPhotos: true,
     oasis: true,
     serviceAi: true,
+    ordersEsign: true,
   },
 };
