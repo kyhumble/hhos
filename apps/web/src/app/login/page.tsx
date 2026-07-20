@@ -103,8 +103,14 @@ export default function LoginPage() {
       });
       const data = await res.json();
       await finishLogin(res, data);
-    } catch {
-      setError('Could not reach API on :3001. Is @hhos/api running?');
+    } catch (err) {
+      const hint =
+        typeof window !== 'undefined' && window.location.port === '3100'
+          ? ' API must allow Origin http://localhost:3100 (restart API after .env CORS change).'
+          : '';
+      setError(
+        `Could not reach API on :3001.${hint} Check http://localhost:3001/health — is @hhos/api running?`,
+      );
     } finally {
       setLoading(false);
     }

@@ -12,8 +12,13 @@ async function bootstrap() {
     logger: new HhosNestLogger(),
   });
 
-  const origins = (process.env.API_CORS_ORIGINS ?? 'http://localhost:3000').split(',');
+  // Local web defaults to :3100 (avoids clashing with other apps on :3000)
+  const origins = (process.env.API_CORS_ORIGINS ?? 'http://localhost:3100,http://localhost:3000')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
   app.enableCors({ origin: origins, credentials: true });
+  log.info('cors_origins', { origins });
 
   const config = new DocumentBuilder()
     .setTitle('HHOS API')
