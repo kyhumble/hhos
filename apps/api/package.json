@@ -8,7 +8,7 @@
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo \"no lint configured\"",
-    "test": "tsx --test src/common/redact.spec.ts src/common/features.spec.ts src/common/boot-guards.spec.ts src/consents/assert-consent-purpose.spec.ts src/audit/audit.service.spec.ts src/devices/devices.service.spec.ts src/photo-crypto/*.spec.ts src/storage/*.spec.ts src/wound-photos/*.spec.ts src/clinical-tasks/*.spec.ts src/notifications/templates/templates.spec.ts"
+    "test": "tsx --test src/common/redact.spec.ts src/common/features.spec.ts src/common/boot-guards.spec.ts src/auth/cognito-jwks.spec.ts src/consents/assert-consent-purpose.spec.ts src/audit/audit.service.spec.ts src/devices/devices.service.spec.ts src/photo-crypto/*.spec.ts src/storage/*.spec.ts src/wound-photos/*.spec.ts src/clinical-tasks/*.spec.ts src/notifications/templates/templates.spec.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.758.0",
@@ -22,6 +22,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "drizzle-orm": "^0.38.3",
+    "jose": "^6.2.3",
     "jsonwebtoken": "^9.0.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",

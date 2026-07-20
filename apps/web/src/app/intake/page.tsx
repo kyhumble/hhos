@@ -112,7 +112,7 @@ export default function IntakePage() {
                   <td colSpan={6}>
                     <EmptyState
                       title="No intake episodes"
-                      body="Create a patient or accept a referral to populate this list."
+                      body="Create a patient, then use Start intake episode on their chart (referral + accept)."
                     />
                   </td>
                 </tr>

@@ -21,10 +21,13 @@
 
 ## Auth
 
-- [ ] `AUTH_PROVIDER=cognito` (or equivalent IdP) — local JWT disabled
-- [ ] MFA for admin, compliance, break-glass
-- [ ] Short-lived tokens; refresh policy approved
-- [ ] Session timeout policy for web + mobile
+- [ ] `AUTH_PROVIDER=cognito` — `POST /v1/auth/session` exchanges Cognito ID token for app JWT
+- [ ] Dev-login disabled in staging/prod (`DEV_LOGIN_DISABLED`)
+- [ ] MFA for admin, compliance, break-glass (`MFA_REQUIRED_ROLES`, user `mfaRequired`)
+- [ ] Cognito User Pool MFA configured; app verifies `amr` / `COGNITO_MFA_CLAIM`
+- [ ] Short-lived tokens; refresh via Cognito re-auth + session exchange
+- [ ] Session timeout policy for web + mobile (`SESSION_IDLE_TIMEOUT_MINUTES`)
+- [ ] `NEXT_PUBLIC_AUTH_PROVIDER=cognito` on web console
 
 ## Application flags (per environment)
 
@@ -45,16 +48,26 @@
 - [ ] Billing export reviewed by billing lead (JSON handoff process)
 - [ ] No auto-submit of claims or auto-signature in prod config
 
+## Notifications
+
+- [ ] `EMAIL_PROVIDER=ses` (or BAA-covered provider) with verified `EMAIL_FROM`
+- [ ] Invite emails deliver; tokens hashed at rest only
+- [ ] Physician sign-link emails deliver without PHI in subject/body beyond initials + DOB year
+- [ ] Resend paths tested (invite + order package)
+
 ## Security validation
 
-- [ ] Cross-tenant isolation test: Org A token cannot read Org B patients (RLS + API)
+- [x] Cross-tenant isolation test in CI: `pnpm --filter @hhos/db test:rls` (hhos_app + FORCE RLS)
+- [ ] Cross-tenant isolation test with API tokens (Org A cannot read Org B patients)
 - [ ] Audit log export for sample PHI mutation
 - [ ] Pen-test / vulnerability scan findings remediated or risk-accepted
-- [ ] Break-glass procedure documented and tested
+- [ ] Break-glass procedure documented and tested (no cross-tenant god-mode)
 
 ## Operational
 
 - [ ] On-call rotation
-- [ ] Monitoring / alerting (API 5xx, DB, storage)
+- [ ] Monitoring / alerting (API 5xx, DB, storage) — `/health` + `/ready`
+- [ ] `HHOS_ENV=staging|production` boot guards pass (RLS + Cognito + secrets)
 - [ ] Support process for provider sign-link failures
 - [ ] Data retention / disposal policy
+- [ ] Postgres + object storage backup restore drill

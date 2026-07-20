@@ -17,7 +17,8 @@
     "migrate": "tsx src/migrate.ts",
     "seed": "tsx src/seeds/dev.ts",
     "lint": "echo \"no lint configured\"",
-    "test": "echo \"no tests yet\""
+    "test": "tsx --test src/rls.spec.ts",
+    "test:rls": "tsx --test src/rls.spec.ts"
   },
   "dependencies": {
     "@hhos/shared": "workspace:*",

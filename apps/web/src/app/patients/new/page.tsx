@@ -95,7 +95,8 @@ export default function NewPatientPage() {
         setError('Create succeeded but no patient id returned');
         return;
       }
-      router.push(`/patients/${data.id}`);
+      // Land on patient chart — user can start intake episode there
+      router.push(`/patients/${data.id}?created=1`);
     } catch {
       setError('API unreachable — is the API running on :3001?');
     } finally {

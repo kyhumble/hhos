@@ -138,6 +138,9 @@ export class OrgsService {
         throw new Error('admin role missing after bootstrap');
       }
 
+      const strictEnv = ['staging', 'production', 'prod'].includes(
+        (process.env.HHOS_ENV ?? process.env.NODE_ENV ?? 'local').toLowerCase(),
+      );
       const [admin] = await db
         .insert(users)
         .values({
@@ -146,6 +149,8 @@ export class OrgsService {
           fullName: input.adminFullName.trim(),
           status: 'active',
           cognitoSub: `local-${org.id}-${email}`,
+          /** Admins require MFA outside local dogfood. */
+          mfaRequired: strictEnv,
         })
         .returning();
       if (!admin) throw new Error('admin insert failed');
@@ -408,6 +413,18 @@ export class OrgsService {
     const tokenHash = sha256(rawToken);
     const expiresAt = new Date(Date.now() + input.expiresInHours * 60 * 60 * 1000);
 
+    const strictEnv = ['staging', 'production', 'prod'].includes(
+      (process.env.HHOS_ENV ?? process.env.NODE_ENV ?? 'local').toLowerCase(),
+    );
+    const mfaRequired =
+      strictEnv &&
+      (input.roleCode === 'admin' ||
+        input.roleCode === 'compliance' ||
+        (process.env.MFA_REQUIRED_ROLES ?? 'admin,compliance')
+          .split(',')
+          .map((s) => s.trim())
+          .includes(input.roleCode));
+
     const invited = await this.db.transaction(async (tx) => {
       let userId = existing?.id;
       if (!userId) {
@@ -419,13 +436,18 @@ export class OrgsService {
             fullName: input.fullName.trim(),
             status: 'invited',
             cognitoSub: `invite-${user.orgId}-${email}`,
+            mfaRequired,
           })
           .returning();
         userId = created!.id;
       } else {
         await tx
           .update(users)
-          .set({ fullName: input.fullName.trim(), status: 'invited' })
+          .set({
+            fullName: input.fullName.trim(),
+            status: 'invited',
+            ...(mfaRequired ? { mfaRequired: true } : {}),
+          })
           .where(eq(users.id, userId));
       }
 

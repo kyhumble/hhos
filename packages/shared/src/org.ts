@@ -77,6 +77,14 @@ export const DevLoginSchema = z.object({
 });
 export type DevLoginInput = z.infer<typeof DevLoginSchema>;
 
+/** Exchange Cognito ID token for HHOS app JWT (Phase 9). */
+export const SessionExchangeSchema = z.object({
+  idToken: z.string().min(20).max(8192),
+  /** Required when cognitoSub/email maps to multiple orgs. */
+  orgId: z.string().uuid().optional(),
+});
+export type SessionExchangeInput = z.infer<typeof SessionExchangeSchema>;
+
 export const DEFAULT_ORG_SETTINGS: Required<
   Pick<
     OrgSettings,

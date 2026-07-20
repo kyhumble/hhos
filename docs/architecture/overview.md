@@ -25,9 +25,11 @@
 
 - Shared DB with **row-level `org_id`** isolation (see [multi-tenant.md](./multi-tenant.md))  
 - Org bootstrap: `POST /v1/orgs`, invites, per-org settings + feature flags  
-- Local JWT auth stub (email + optional `orgId`); Cognito for production  
+- Local JWT auth stub (email + optional `orgId`); Cognito session exchange for production  
+- Postgres **RLS** with `hhos_app` + `FEATURE_RLS` (Phase 8); enforced in staging/prod boot guards  
 - SOC due window: 48 hours (org-configurable)  
 - Photo geotag: disabled by default  
+- Outbound email for invites + physician sign links (`EMAIL_PROVIDER`, Phase 9)  
 
 ## Related design
 
@@ -38,11 +40,12 @@
 | **[Phase 2 KPIs](./phase-2-kpis.md)** | Operational metrics SQL (ids only — no PHI columns) |
 | **[Phase 3 — OASIS-E2 / PDGM](./phase-3-oasis-e2-pdgm.md)** | Versioned item subset, assessment lifecycle, advisory LUPA/PDGM flags, clinical lead lock |
 | **[Phase 4 — Service AI / routing](./phase-4-service-ai-routing.md)** | HITL route suggestions, visit tasks, hospitalization alerts (`FEATURE_SERVICE_AI`) |
-| **[Multi-tenant](./multi-tenant.md)** | Org create, invites, per-org settings/flags; RLS/KMS still future |
+| **[Multi-tenant](./multi-tenant.md)** | Org create, invites, per-org settings/flags, RLS |
 | **[Phase 5 — Orders / 485 e-sign](./phase-5-orders-esign.md)** | POC-485, orders, F2F, hospice cert packages; physician magic-link sign (`FEATURE_ORDERS_ESIGN`) |
 | **[Phase 6 — Hospice](./phase-6-hospice.md)** | Elections, benefit periods, LOC, cert via Phase 5 (`FEATURE_HOSPICE`) |
 | **[Phase 7 — Billing](./phase-7-billing.md)** | Readiness gaps, claim packages, JSON export prep (`FEATURE_BILLING`) |
 | **[Phase 8 — Production hardening](./phase-8-production-hardening.md)** | Postgres RLS, request-scoped org isolation, go-live checklist |
+| **[Phase 9 — Platform productization](./phase-9-platform.md)** | Boot guards, notifications, Cognito session, MFA, operator UX, isolation CI |
 | `docs/compliance/threat-model-v0.md` | Baseline + photo pipeline threats |
 | `docs/domain/consent-purposes.md` | Purpose codes including `WOUND_PHOTO_CLINICAL` |
 

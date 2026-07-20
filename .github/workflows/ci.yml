@@ -8,6 +8,30 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: hhos
+          POSTGRES_PASSWORD: hhos_dev
+          POSTGRES_DB: hhos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hhos -d hhos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://hhos:hhos_dev@localhost:5432/hhos
+      DATABASE_APP_PASSWORD: hhos_app_dev
+      HHOS_ENV: local
+      AUTH_PROVIDER: local
+      JWT_SECRET: ci-only-not-for-prod-use-32chars
+      FEATURE_RLS: 'false'
+
     steps:
       - uses: actions/checkout@v4
 
@@ -26,14 +50,21 @@ jobs:
       - name: Build shared + db
         run: pnpm --filter @hhos/shared build && pnpm --filter @hhos/db build
 
+      - name: Migrate database
+        run: pnpm db:migrate
+
       - name: Typecheck
         run: pnpm typecheck
 
-      # API unit suite: photo crypto vectors, dual-S3 client construction (no live MinIO),
-      # wound-photo control plane, features, redact. Compose MinIO is for local smoke only —
-      # see README "CI & MinIO" and docs/architecture/phase-2-kpis.md.
+      # API unit suite: photo crypto, dual-S3, boot guards, Cognito MFA helpers, notifications
       - name: API unit tests
         run: pnpm --filter @hhos/api test
+
+      - name: RLS cross-tenant isolation gate
+        env:
+          # Test connects as hhos_app (non-superuser) — created by migration 0008
+          FEATURE_RLS: 'true'
+        run: pnpm --filter @hhos/db test:rls
 
       - name: Guard — no Cognito required in CI, but fail if prod secrets committed
         run: |
