@@ -12,11 +12,11 @@ export function PageHeader({
   eyebrow?: string;
 }) {
   return (
-    <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
-        {eyebrow && <div className="ui-kicker mb-1.5">{eyebrow}</div>}
+        {eyebrow ? <div className="ui-kicker mb-0.5">{eyebrow}</div> : null}
         <h1 className="ui-page-title">{title}</h1>
-        {description && <p className="ui-page-desc">{description}</p>}
+        {description ? <p className="ui-page-desc">{description}</p> : null}
       </div>
       {actions ? (
         <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
@@ -46,23 +46,26 @@ export function StatCard({
   label: string;
   value: string | number;
   hint?: string;
-  tone?: 'brand' | 'success' | 'warn' | 'neutral';
+  tone?: 'brand' | 'success' | 'warn' | 'neutral' | 'danger';
 }) {
-  const accent =
+  const bar =
     tone === 'success'
-      ? 'from-emerald-500/10 to-transparent'
+      ? 'bg-emerald-500'
       : tone === 'warn'
-        ? 'from-amber-500/10 to-transparent'
-        : tone === 'neutral'
-          ? 'from-ink-400/10 to-transparent'
-          : 'from-brand-500/12 to-transparent';
+        ? 'bg-amber-500'
+        : tone === 'danger'
+          ? 'bg-red-500'
+          : tone === 'neutral'
+            ? 'bg-ink-400'
+            : 'bg-brand-600';
   return (
-    <div className={`ui-stat bg-gradient-to-br ${accent}`}>
-      <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-ink-500">{label}</div>
-      <div className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink-950">
+    <div className="ui-stat relative overflow-hidden">
+      <div className={`absolute inset-y-0 left-0 w-0.5 ${bar}`} />
+      <div className="text-2xs font-semibold uppercase tracking-wide text-ink-400">{label}</div>
+      <div className="mt-1 font-display text-2xl font-semibold tracking-tight text-ink-900">
         {value}
       </div>
-      {hint ? <p className="mt-1.5 text-xs text-ink-500">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-xs text-ink-500">{hint}</p> : null}
     </div>
   );
 }
@@ -130,7 +133,7 @@ export function Field({
     <div>
       <Label>{label}</Label>
       {children}
-      {hint ? <p className="mt-1.5 text-xs leading-relaxed text-ink-400">{hint}</p> : null}
+      {hint ? <p className="mt-1 text-xs text-ink-400">{hint}</p> : null}
     </div>
   );
 }
@@ -165,57 +168,22 @@ export function Alert({
     error: 'ui-alert-error',
     success: 'ui-alert-success',
   } as const;
-  const icons = {
-    info: (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
-      />
-    ),
-    warn: (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-      />
-    ),
-    error: (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-      />
-    ),
-    success: (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-      />
-    ),
-  };
-  return (
-    <div className={`${map[tone]} flex gap-3`}>
-      <svg
-        className="mt-0.5 h-5 w-5 shrink-0 opacity-80"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={1.5}
-      >
-        {icons[tone]}
-      </svg>
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
-  );
+  return <div className={map[tone]}>{children}</div>;
 }
 
-export function EmptyState({ title, body }: { title: string; body?: string }) {
+export function EmptyState({
+  title,
+  body,
+  action,
+}: {
+  title: string;
+  body?: string;
+  action?: React.ReactNode;
+}) {
   return (
     <div className="px-4 py-14 text-center">
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-ink-100 to-brand-50 text-brand-600 shadow-soft ring-1 ring-ink-200/60">
-        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-ink-100 text-ink-500">
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -223,10 +191,22 @@ export function EmptyState({ title, body }: { title: string; body?: string }) {
           />
         </svg>
       </div>
-      <p className="font-display font-semibold text-ink-900">{title}</p>
-      {body ? <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-ink-500">{body}</p> : null}
+      <p className="text-sm font-semibold text-ink-900">{title}</p>
+      {body ? <p className="mx-auto mt-1 max-w-sm text-sm text-ink-500">{body}</p> : null}
+      {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
     </div>
   );
+}
+
+export function Avatar({ name }: { name: string }) {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+  return <span className="ui-avatar">{initials || '?'}</span>;
 }
 
 export function statusTone(
@@ -244,4 +224,17 @@ export function statusTone(
   }
   if (['scheduled', 'in_progress', 'open'].includes(s)) return 'brand';
   return 'neutral';
+}
+
+export function socUrgency(socDueAt: string | null): {
+  label: string;
+  tone: 'neutral' | 'brand' | 'success' | 'warn' | 'danger';
+} {
+  if (!socDueAt) return { label: 'No SOC due', tone: 'neutral' };
+  const due = new Date(socDueAt).getTime();
+  const hours = (due - Date.now()) / (1000 * 60 * 60);
+  if (hours < 0) return { label: 'Overdue', tone: 'danger' };
+  if (hours < 12) return { label: 'Due soon', tone: 'warn' };
+  if (hours < 48) return { label: 'On track', tone: 'brand' };
+  return { label: 'Scheduled', tone: 'success' };
 }

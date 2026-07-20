@@ -36,6 +36,18 @@ function pageTitle(pathname: string): string {
   return 'HHOS';
 }
 
+function pageCrumb(pathname: string): string {
+  if (pathname === '/') return 'Overview';
+  if (pathname.startsWith('/intake') || pathname.startsWith('/oasis') || pathname.startsWith('/tasks')) {
+    return 'Clinical';
+  }
+  if (pathname.startsWith('/routing') || pathname.startsWith('/field')) return 'Operations';
+  if (pathname.startsWith('/orders') || pathname.startsWith('/hospice')) return 'Compliance';
+  if (pathname.startsWith('/billing')) return 'Revenue';
+  if (pathname.startsWith('/admin') || pathname.startsWith('/onboard')) return 'Platform';
+  return 'Console';
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [user, setUser] = useState<SessionUser | null>(null);
@@ -44,7 +56,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/sign/') || pathname === '/login' || pathname === '/invite';
 
   useEffect(() => {
-    // Prefer cached user immediately, then validate token with /v1/me
     setUser(getStoredUser());
     void loadSessionUser().then((u) => setUser(u));
   }, [pathname]);
@@ -57,7 +68,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const groups = useMemo(() => [...new Set(nav.map((n) => n.group))], [nav]);
 
   if (bare) {
-    return <div className="min-h-screen">{children}</div>;
+    return <div className="min-h-screen bg-canvas">{children}</div>;
   }
 
   function logout() {
@@ -67,32 +78,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const sidebar = (
-    <div className="relative flex h-full flex-col overflow-hidden bg-sidebar-lux text-white shadow-sidebar">
-      <div className="pointer-events-none absolute inset-0 bg-hero-shine opacity-60" />
-      <div className="pointer-events-none absolute -right-16 top-24 h-48 w-48 rounded-full bg-brand-400/20 blur-3xl" />
-      <div className="pointer-events-none absolute -left-10 bottom-20 h-40 w-40 rounded-full bg-emerald-400/10 blur-3xl" />
-
-      <div className="relative flex items-center gap-3 border-b border-white/10 px-5 py-5">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 text-sm font-bold tracking-tight text-white shadow-glow ring-1 ring-white/25 backdrop-blur">
+    <div className="flex h-full flex-col bg-side text-white">
+      <div className="flex h-[var(--header-h)] items-center gap-2.5 border-b border-side-border px-4">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-[11px] font-bold tracking-tight">
           HH
         </div>
-        <div className="min-w-0">
-          <div className="truncate font-display text-[15px] font-bold tracking-tight text-white">
-            HHOS
-          </div>
-          <div className="truncate text-[11px] font-medium text-brand-100/70">
-            Home Health · Hospice
-          </div>
+        <div className="min-w-0 leading-tight">
+          <div className="truncate text-[13px] font-semibold tracking-tight">HHOS</div>
+          <div className="truncate text-[10px] text-side-muted">Home Health OS</div>
         </div>
       </div>
 
-      <nav className="relative flex-1 space-y-6 overflow-y-auto px-3 py-5">
+      <nav className="flex-1 space-y-5 overflow-y-auto px-2.5 py-4">
         {groups.map((group) => (
           <div key={group}>
-            <div className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">
+            <div className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-side-muted/70">
               {group}
             </div>
-            <ul className="space-y-1">
+            <ul className="space-y-0.5">
               {nav
                 .filter((n) => n.group === group)
                 .map((item) => {
@@ -101,25 +104,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <li key={item.href}>
                       <Link
                         href={item.href}
-                        className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition duration-150 ${
+                        className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition ${
                           active
-                            ? 'bg-white text-brand-900 shadow-lg shadow-black/10'
-                            : 'text-white/75 hover:bg-white/10 hover:text-white'
+                            ? 'bg-brand-600 text-white shadow-sm'
+                            : 'text-slate-300 hover:bg-white/5 hover:text-white'
                         }`}
                       >
-                        <span
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition ${
-                            active
-                              ? 'bg-brand-600 text-white shadow-sm'
-                              : 'bg-white/10 text-white/80 group-hover:bg-white/15'
-                          }`}
-                        >
-                          <NavIcon name={iconForHref(item.href)} className="h-[15px] w-[15px]" />
-                        </span>
+                        <NavIcon
+                          name={iconForHref(item.href)}
+                          className={`h-4 w-4 shrink-0 ${active ? 'opacity-100' : 'opacity-70'}`}
+                        />
                         <span className="truncate">{item.label}</span>
-                        {active && (
-                          <span className="ml-auto h-1.5 w-1.5 rounded-full bg-brand-500" />
-                        )}
                       </Link>
                     </li>
                   );
@@ -129,11 +124,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ))}
       </nav>
 
-      <div className="relative border-t border-white/10 p-4">
+      <div className="border-t border-side-border p-3">
         {user ? (
-          <div className="rounded-2xl bg-white/10 p-3.5 ring-1 ring-white/15 backdrop-blur-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-300 to-brand-600 text-xs font-bold text-white shadow-sm">
+          <div className="rounded-lg bg-side-elev p-2.5 ring-1 ring-side-border">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-600 text-[10px] font-bold">
                 {user.fullName
                   .split(' ')
                   .map((p) => p[0])
@@ -142,24 +137,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   .toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-semibold text-white">{user.fullName}</div>
-                <div className="truncate text-[11px] text-white/55">{user.email}</div>
+                <div className="truncate text-xs font-semibold">{user.fullName}</div>
+                <div className="truncate text-[10px] text-side-muted">{user.roles[0]?.replace(/_/g, ' ')}</div>
               </div>
-            </div>
-            <div className="mt-2.5 flex flex-wrap gap-1">
-              {user.roles.slice(0, 2).map((r) => (
-                <span
-                  key={r}
-                  className="rounded-md bg-black/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-100"
-                >
-                  {r.replace(/_/g, ' ')}
-                </span>
-              ))}
             </div>
             <button
               type="button"
               onClick={logout}
-              className="mt-3 w-full rounded-xl bg-white/10 px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-white/20"
+              className="mt-2 w-full rounded-md bg-white/5 px-2 py-1.5 text-[11px] font-semibold text-slate-300 hover:bg-white/10 hover:text-white"
             >
               Sign out
             </button>
@@ -167,14 +152,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ) : (
           <Link
             href="/login"
-            className="flex w-full items-center justify-center rounded-xl bg-white px-3 py-2.5 text-sm font-bold text-brand-800 shadow-glow transition hover:bg-brand-50"
+            className="flex w-full items-center justify-center rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-500"
           >
             Sign in
           </Link>
         )}
-        <p className="mt-3 px-1 text-center text-[10px] leading-relaxed text-white/30">
-          Synthetic data only · Not production PHI
-        </p>
+        <p className="mt-2 text-center text-[10px] text-side-muted/60">Synthetic · non-PHI</p>
       </div>
     </div>
   );
@@ -189,7 +172,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
-            className="absolute inset-0 bg-ink-950/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-ink-950/50"
             aria-label="Close menu"
             onClick={() => setMobileOpen(false)}
           />
@@ -200,9 +183,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Top bar — desktop + mobile */}
-        <header className="sticky top-0 z-30 border-b border-ink-200/60 bg-white/75 backdrop-blur-xl">
-          <div className="mx-auto flex h-[var(--header-h)] max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-30 border-b border-ink-200 bg-white/90 backdrop-blur-md">
+          <div className="flex h-[var(--header-h)] items-center justify-between gap-3 px-4 sm:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
@@ -212,36 +194,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Menu
               </button>
               <div className="min-w-0">
-                <div className="truncate font-display text-sm font-semibold text-ink-950 sm:text-base">
-                  {pageTitle(pathname)}
-                </div>
-                <div className="hidden text-[11px] text-ink-400 sm:block">
-                  Home Health Operating System
+                <div className="flex items-center gap-1.5 text-2xs text-ink-400">
+                  <span>{pageCrumb(pathname)}</span>
+                  <span className="text-ink-300">/</span>
+                  <span className="font-medium text-ink-600">{pageTitle(pathname)}</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-              <span className="hidden items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 sm:inline-flex">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                Demo · synthetic
+            <div className="flex shrink-0 items-center gap-2">
+              <Link href="/patients/new" className="ui-btn-primary ui-btn-sm hidden sm:inline-flex">
+                New patient
+              </Link>
+              <span className="hidden items-center gap-1.5 rounded-md border border-ink-200 bg-ink-50 px-2 py-1 text-2xs font-medium text-ink-600 sm:inline-flex">
+                <span className="ui-dot bg-emerald-500" />
+                Demo
               </span>
               {user ? (
-                <div className="hidden items-center gap-2 rounded-full border border-ink-200 bg-white py-1 pl-1 pr-3 shadow-sm md:flex">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-[10px] font-bold text-white">
-                    {user.fullName
-                      .split(' ')
-                      .map((p) => p[0])
-                      .slice(0, 2)
-                      .join('')
-                      .toUpperCase()}
-                  </div>
-                  <span className="max-w-[8rem] truncate text-xs font-semibold text-ink-800">
-                    {user.fullName.split(' ')[0]}
-                  </span>
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-100 text-2xs font-bold text-ink-700 ring-1 ring-ink-200">
+                  {user.fullName
+                    .split(' ')
+                    .map((p) => p[0])
+                    .slice(0, 2)
+                    .join('')
+                    .toUpperCase()}
                 </div>
               ) : (
-                <Link href="/login" className="ui-btn-primary ui-btn-sm">
+                <Link href="/login" className="ui-btn-secondary ui-btn-sm">
                   Sign in
                 </Link>
               )}
@@ -249,13 +228,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-7 sm:px-6 sm:py-9 lg:px-8">
+        <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-5 sm:px-6 sm:py-6">
           {children}
         </main>
-
-        <footer className="border-t border-ink-200/50 py-4 text-center text-[11px] text-ink-400">
-          HHOS · HIPAA-by-design · Phases 0–9 platform
-        </footer>
       </div>
     </div>
   );

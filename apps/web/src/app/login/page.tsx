@@ -9,19 +9,18 @@ import { Alert, Button, Field, Input, Select } from '@/components/ui';
 type OrgChoice = { id: string; name: string; slug: string };
 
 const DEMO = [
-  { email: 'admin@demo.local', role: 'Admin', color: 'from-violet-500 to-brand-600' },
-  { email: 'coord@demo.local', role: 'Intake', color: 'from-brand-500 to-sky-500' },
-  { email: 'lead@demo.local', role: 'Clinical', color: 'from-emerald-500 to-teal-600' },
-  { email: 'billing@demo.local', role: 'Billing', color: 'from-amber-500 to-orange-600' },
-  { email: 'rn@demo.local', role: 'Field RN', color: 'from-rose-500 to-pink-600' },
-  { email: 'compliance@demo.local', role: 'Compliance', color: 'from-slate-500 to-ink-700' },
+  { email: 'admin@demo.local', role: 'Admin' },
+  { email: 'coord@demo.local', role: 'Intake' },
+  { email: 'lead@demo.local', role: 'Clinical' },
+  { email: 'billing@demo.local', role: 'Billing' },
+  { email: 'rn@demo.local', role: 'Field RN' },
+  { email: 'compliance@demo.local', role: 'Compliance' },
 ];
 
 const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_PROVIDER ?? 'local';
 
 function safeNextPath(raw: string | null): string {
   if (!raw) return '/';
-  // Only allow same-origin relative paths
   if (!raw.startsWith('/') || raw.startsWith('//')) return '/';
   return raw;
 }
@@ -112,93 +111,69 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen">
-      {/* Brand panel */}
-      <div className="relative hidden w-[46%] overflow-hidden bg-sidebar-lux lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-14">
-        <div className="pointer-events-none absolute inset-0 bg-hero-shine" />
-        <div className="pointer-events-none absolute -right-20 top-20 h-72 w-72 rounded-full bg-brand-400/30 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-10 left-10 h-64 w-64 rounded-full bg-emerald-400/15 blur-3xl" />
-
-        <div className="relative">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 text-base font-bold text-white ring-1 ring-white/25 shadow-glow">
-              HH
-            </div>
-            <div>
-              <div className="font-display text-lg font-bold text-white">HHOS</div>
-              <div className="text-xs text-brand-100/70">Home Health · Hospice OS</div>
-            </div>
+    <div className="flex min-h-screen">
+      <div className="hidden w-[42%] flex-col justify-between bg-side p-10 text-white lg:flex xl:p-12">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-xs font-bold">
+            HH
+          </div>
+          <div>
+            <div className="text-sm font-semibold">HHOS</div>
+            <div className="text-[11px] text-side-muted">Home Health · Hospice</div>
           </div>
         </div>
 
-        <div className="relative max-w-md">
-          <h2 className="font-display text-3xl font-bold leading-tight tracking-tight text-white xl:text-4xl">
-            The operating system for agencies that live on signatures and SOC readiness.
+        <div className="max-w-sm">
+          <h2 className="font-display text-2xl font-semibold leading-snug tracking-tight">
+            Agency operations for intake, signatures, and billing readiness.
           </h2>
-          <p className="mt-4 text-[15px] leading-relaxed text-brand-100/75">
-            Intake, OASIS, 485 e-sign, hospice certs, and billing readiness — human-in-the-loop by
-            design. Synthetic data only in this environment.
+          <p className="mt-3 text-sm leading-relaxed text-slate-400">
+            Human-in-the-loop by design. Synthetic data only in this environment.
           </p>
-          <ul className="mt-8 space-y-3">
-            {[
-              'HITL physician signatures',
-              'Multi-tenant org isolation',
-              'Billing readiness without auto-submit',
-            ].map((t) => (
-              <li key={t} className="flex items-center gap-2.5 text-sm text-white/85">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400/20 text-emerald-300 ring-1 ring-emerald-400/30">
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                  </svg>
-                </span>
+          <ul className="mt-6 space-y-2 text-sm text-slate-300">
+            {['Physician 485 e-sign', 'SOC intake worklists', 'Claim readiness export'].map((t) => (
+              <li key={t} className="flex items-center gap-2">
+                <span className="ui-dot bg-emerald-400" />
                 {t}
               </li>
             ))}
           </ul>
         </div>
 
-        <p className="relative text-xs text-white/35">Phases 0–9 · HIPAA-by-design platform</p>
+        <p className="text-[11px] text-side-muted">Phases 0–9 · HIPAA-by-design</p>
       </div>
 
-      {/* Form panel */}
-      <div className="relative flex flex-1 flex-col justify-center px-5 py-12 sm:px-10">
-        <div className="pointer-events-none absolute inset-0 bg-mesh-light opacity-80" />
-
-        <div className="relative mx-auto w-full max-w-[420px]">
-          <div className="mb-8 lg:hidden">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 font-bold text-white shadow-glow">
+      <div className="flex flex-1 flex-col justify-center bg-canvas px-5 py-12 sm:px-10">
+        <div className="mx-auto w-full max-w-[400px]">
+          <div className="mb-6 lg:hidden">
+            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-xs font-bold text-white">
               HH
             </div>
           </div>
 
-          <div className="mb-8">
-            <h1 className="font-display text-2xl font-bold tracking-tight text-ink-950 sm:text-[1.75rem]">
-              Sign in
-            </h1>
-            <p className="mt-2 text-sm leading-relaxed text-ink-500">
-              {cognitoMode
-                ? 'Exchange a Cognito ID token for an HHOS app session.'
-                : 'Local demo mode — pick a persona. No password required.'}
-            </p>
-          </div>
+          <h1 className="font-display text-xl font-semibold tracking-tight text-ink-900">
+            Sign in
+          </h1>
+          <p className="mt-1 text-sm text-ink-500">
+            {cognitoMode
+              ? 'Exchange a Cognito ID token for an HHOS session.'
+              : 'Local demo — pick a persona. No password.'}
+          </p>
 
           {notice && (
-            <div className="mb-4">
+            <div className="mt-4">
               <Alert tone="warn">{notice}</Alert>
             </div>
           )}
 
           <form
             onSubmit={(e) => void onSubmit(e)}
-            className="rounded-3xl border border-ink-200/80 bg-white p-6 shadow-lift sm:p-8"
+            className="mt-6 rounded-xl border border-ink-200 bg-white p-5 shadow-panel sm:p-6"
           >
             {cognitoMode ? (
-              <Field
-                label="Cognito ID token"
-                hint="From Hosted UI / Amplify Auth. MFA may be required for admin/compliance."
-              >
+              <Field label="Cognito ID token">
                 <textarea
-                  className="ui-input min-h-[7rem] font-mono text-xs"
+                  className="ui-input min-h-[6rem] font-mono text-xs"
                   value={idToken}
                   onChange={(e) => setIdToken(e.target.value)}
                   required
@@ -223,7 +198,7 @@ export default function LoginPage() {
             )}
 
             {orgChoices.length > 0 && (
-              <div className="mt-4">
+              <div className="mt-3">
                 <Field label="Organization">
                   <Select value={orgId} onChange={(e) => setOrgId(e.target.value)} required>
                     <option value="">Select…</option>
@@ -238,38 +213,33 @@ export default function LoginPage() {
             )}
 
             {error && (
-              <div className="mt-4">
+              <div className="mt-3">
                 <Alert tone="error">{error}</Alert>
               </div>
             )}
 
-            <Button type="submit" className="mt-6 w-full !py-3" disabled={loading}>
-              {loading ? 'Signing in…' : cognitoMode ? 'Exchange session' : 'Continue to console'}
+            <Button type="submit" className="mt-5 w-full" disabled={loading}>
+              {loading ? 'Signing in…' : cognitoMode ? 'Exchange session' : 'Continue'}
             </Button>
 
             {!cognitoMode && (
-              <div className="mt-7 border-t border-ink-100 pt-6">
-                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-ink-400">
-                  Quick persona
+              <div className="mt-5 border-t border-ink-100 pt-4">
+                <p className="mb-2 text-2xs font-semibold uppercase tracking-wide text-ink-400">
+                  Personas
                 </p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <div className="grid grid-cols-3 gap-1.5">
                   {DEMO.map((d) => (
                     <button
                       key={d.email}
                       type="button"
                       onClick={() => setEmail(d.email)}
-                      className={`rounded-xl border px-2.5 py-2.5 text-left transition ${
+                      className={`rounded-lg border px-2 py-2 text-left text-xs font-medium transition ${
                         email === d.email
-                          ? 'border-brand-300 bg-brand-50 shadow-soft ring-2 ring-brand-500/20'
-                          : 'border-ink-200 bg-white hover:border-ink-300 hover:bg-ink-50'
+                          ? 'border-brand-300 bg-brand-50 text-brand-800'
+                          : 'border-ink-200 text-ink-600 hover:bg-ink-50'
                       }`}
                     >
-                      <span
-                        className={`mb-1.5 inline-flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br ${d.color} text-[9px] font-bold text-white`}
-                      >
-                        {d.role.slice(0, 2).toUpperCase()}
-                      </span>
-                      <div className="text-xs font-semibold text-ink-900">{d.role}</div>
+                      {d.role}
                     </button>
                   ))}
                 </div>
@@ -277,13 +247,12 @@ export default function LoginPage() {
             )}
           </form>
 
-          <p className="mt-8 text-center text-sm text-ink-500">
-            New agency?{' '}
-            <Link href="/onboard" className="font-semibold text-brand-700 hover:underline">
+          <p className="mt-6 text-center text-sm text-ink-500">
+            <Link href="/onboard" className="font-medium text-brand-700 hover:underline">
               Create organization
             </Link>
             {' · '}
-            <Link href="/invite" className="font-semibold text-brand-700 hover:underline">
+            <Link href="/invite" className="font-medium text-brand-700 hover:underline">
               Accept invite
             </Link>
           </p>

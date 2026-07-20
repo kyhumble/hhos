@@ -1,18 +1,19 @@
 import type { Metadata } from 'next';
-import { DM_Sans, Plus_Jakarta_Sans } from 'next/font/google';
+import { Inter, Source_Sans_3 } from 'next/font/google';
 import { AppShell } from '@/components/app-shell';
 import './globals.css';
 
-const sans = DM_Sans({
+const sans = Inter({
   subsets: ['latin'],
   variable: '--font-sans',
   display: 'swap',
 });
 
-const display = Plus_Jakarta_Sans({
+const display = Source_Sans_3({
   subsets: ['latin'],
   variable: '--font-display',
   display: 'swap',
+  weight: ['400', '600', '700'],
 });
 
 export const metadata: Metadata = {

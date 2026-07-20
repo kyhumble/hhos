@@ -4,172 +4,154 @@
 
 :root {
   color-scheme: light;
-  --sidebar-width: 16.5rem;
-  --surface: #ffffff;
-  --canvas: #f3f5f8;
-  --ring: #0c89ea;
-  --header-h: 3.75rem;
+  --sidebar-width: 15rem;
+  --header-h: 3.25rem;
+  --ring: #2563eb;
 }
 
 html {
   height: 100%;
-  scroll-behavior: smooth;
 }
 
 body {
   min-height: 100%;
   @apply bg-canvas text-ink-900 antialiased font-sans;
-  background-image: theme('backgroundImage.mesh-light');
-  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Selection */
 ::selection {
-  background: rgba(12, 137, 234, 0.18);
-  color: #07274a;
+  background: rgba(37, 99, 235, 0.16);
 }
 
-/* Scrollbars (webkit) */
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 *::-webkit-scrollbar-thumb {
-  background: rgba(115, 129, 154, 0.35);
+  background: #cbd5e1;
   border-radius: 999px;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: rgba(115, 129, 154, 0.55);
-}
-
-/* Custom motion — defined in CSS (not @apply) so Tailwind build always succeeds */
-@keyframes hhos-fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  background: #94a3b8;
 }
 
 @layer components {
   .ui-page {
-    @apply space-y-7;
-    animation: hhos-fade-up 0.4s ease-out both;
+    @apply space-y-5;
   }
 
   .ui-page-title {
-    @apply font-display text-[1.65rem] font-semibold leading-tight tracking-tight text-ink-950 sm:text-[1.85rem];
+    @apply font-display text-xl font-semibold tracking-tight text-ink-900 sm:text-[1.375rem];
   }
 
   .ui-page-desc {
-    @apply mt-1.5 max-w-2xl text-[0.9375rem] leading-relaxed text-ink-500;
+    @apply mt-1 max-w-2xl text-sm leading-snug text-ink-500;
+  }
+
+  .ui-kicker {
+    @apply text-2xs font-semibold uppercase tracking-wider text-ink-400;
   }
 
   .ui-card {
-    @apply rounded-2xl border border-ink-200/70 bg-white shadow-soft;
+    @apply rounded-xl border border-ink-200/90 bg-white shadow-soft;
   }
 
   .ui-card-pad {
-    @apply ui-card p-5 sm:p-6;
+    @apply ui-card p-4 sm:p-5;
   }
 
-  .ui-card-interactive {
-    @apply ui-card-pad transition duration-200 hover:-translate-y-0.5 hover:border-brand-300/80 hover:shadow-lift;
+  .ui-panel {
+    @apply rounded-xl border border-ink-200/90 bg-white shadow-panel;
   }
 
   .ui-label {
-    @apply mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-500;
+    @apply mb-1 block text-2xs font-semibold uppercase tracking-wide text-ink-500;
   }
 
   .ui-input {
-    @apply w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-900
-      shadow-sm outline-none transition
+    @apply w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900
+      outline-none transition
       placeholder:text-ink-400
-      focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15;
+      focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20;
   }
 
   .ui-select {
-    @apply ui-input appearance-none bg-[length:1rem] bg-[right_0.75rem_center] bg-no-repeat pr-10;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2373819a'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    @apply ui-input appearance-none bg-[length:0.9rem] bg-[right_0.65rem_center] bg-no-repeat pr-9;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
   }
 
   .ui-btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
-      transition duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/25
-      disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold
+      transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30
+      disabled:pointer-events-none disabled:opacity-50;
   }
 
   .ui-btn-primary {
-    @apply ui-btn bg-brand-600 text-white shadow-glow hover:bg-brand-700;
+    @apply ui-btn bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800;
   }
 
   .ui-btn-secondary {
-    @apply ui-btn border border-ink-200 bg-white text-ink-800 shadow-sm hover:border-ink-300 hover:bg-ink-50;
+    @apply ui-btn border border-ink-200 bg-white text-ink-700 hover:bg-ink-50 hover:border-ink-300;
   }
 
   .ui-btn-ghost {
-    @apply ui-btn text-ink-600 hover:bg-ink-100/90 hover:text-ink-900;
+    @apply ui-btn text-ink-600 hover:bg-ink-100 hover:text-ink-900;
   }
 
   .ui-btn-danger {
-    @apply ui-btn bg-red-600 text-white shadow-sm hover:bg-red-700 focus-visible:ring-red-500/25;
+    @apply ui-btn bg-red-600 text-white hover:bg-red-700;
   }
 
   .ui-btn-sm {
-    @apply px-2.5 py-1.5 text-xs rounded-lg;
+    @apply px-2 py-1 text-xs rounded-md;
   }
 
   .ui-badge {
-    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em];
+    @apply inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide;
   }
 
   .ui-badge-neutral {
-    @apply ui-badge bg-ink-100 text-ink-700;
+    @apply ui-badge bg-ink-100 text-ink-600;
   }
 
   .ui-badge-brand {
-    @apply ui-badge bg-brand-100 text-brand-800;
+    @apply ui-badge bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-100;
   }
 
   .ui-badge-success {
-    @apply ui-badge bg-emerald-100 text-emerald-800;
+    @apply ui-badge bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-100;
   }
 
   .ui-badge-warn {
-    @apply ui-badge bg-amber-100 text-amber-900;
+    @apply ui-badge bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-100;
   }
 
   .ui-badge-danger {
-    @apply ui-badge bg-red-100 text-red-800;
+    @apply ui-badge bg-red-50 text-red-700 ring-1 ring-inset ring-red-100;
   }
 
   .ui-alert {
-    @apply rounded-2xl border px-4 py-3.5 text-sm leading-relaxed shadow-sm;
+    @apply flex gap-2.5 rounded-lg border px-3.5 py-3 text-sm leading-snug;
   }
 
   .ui-alert-info {
-    @apply ui-alert border-brand-200/80 bg-gradient-to-r from-brand-50 to-white text-brand-950;
+    @apply ui-alert border-brand-100 bg-brand-50/80 text-brand-950;
   }
 
   .ui-alert-warn {
-    @apply ui-alert border-amber-200/80 bg-gradient-to-r from-amber-50 to-white text-amber-950;
+    @apply ui-alert border-amber-100 bg-amber-50 text-amber-950;
   }
 
   .ui-alert-error {
-    @apply ui-alert border-red-200/80 bg-gradient-to-r from-red-50 to-white text-red-900;
+    @apply ui-alert border-red-100 bg-red-50 text-red-900;
   }
 
   .ui-alert-success {
-    @apply ui-alert border-emerald-200/80 bg-gradient-to-r from-emerald-50 to-white text-emerald-950;
+    @apply ui-alert border-emerald-100 bg-emerald-50 text-emerald-950;
   }
 
   .ui-table-wrap {
-    @apply ui-card overflow-hidden;
+    @apply ui-panel overflow-hidden;
   }
 
   .ui-table {
@@ -177,23 +159,27 @@ body {
   }
 
   .ui-table thead {
-    @apply bg-gradient-to-b from-ink-50 to-ink-50/60 text-[11px] font-bold uppercase tracking-[0.08em] text-ink-500;
+    @apply border-b border-ink-200 bg-ink-50/80 text-2xs font-semibold uppercase tracking-wide text-ink-500;
   }
 
   .ui-table th {
-    @apply px-4 py-3.5 first:pl-5 last:pr-5;
+    @apply px-3 py-2.5 font-semibold first:pl-4 last:pr-4;
   }
 
   .ui-table tbody tr {
-    @apply border-t border-ink-100/90 transition hover:bg-brand-50/50;
+    @apply border-t border-ink-100 transition hover:bg-brand-50/40;
+  }
+
+  .ui-table tbody tr:first-child {
+    @apply border-t-0;
   }
 
   .ui-table td {
-    @apply px-4 py-3.5 text-ink-800 first:pl-5 last:pr-5;
+    @apply px-3 py-2.5 text-ink-700 first:pl-4 last:pr-4 align-middle;
   }
 
   .ui-section-title {
-    @apply font-display text-sm font-semibold tracking-tight text-ink-900;
+    @apply text-sm font-semibold text-ink-900;
   }
 
   .ui-muted {
@@ -201,28 +187,26 @@ body {
   }
 
   .ui-link {
-    @apply font-semibold text-brand-700 underline-offset-2 transition hover:text-brand-800 hover:underline;
+    @apply font-medium text-brand-700 hover:text-brand-800 hover:underline underline-offset-2;
+  }
+
+  .ui-toolbar {
+    @apply flex flex-wrap items-center gap-2 rounded-xl border border-ink-200/90 bg-white px-3 py-2 shadow-soft;
   }
 
   .ui-stat {
-    @apply ui-card-pad relative overflow-hidden;
-  }
-
-  .ui-stat::after {
-    content: '';
-    @apply pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-[0.07];
-    background: radial-gradient(circle, theme('colors.brand.500'), transparent 70%);
-  }
-
-  .ui-kicker {
-    @apply text-[11px] font-bold uppercase tracking-[0.14em] text-brand-600;
-  }
-
-  .ui-divider {
-    @apply border-t border-ink-100;
+    @apply ui-card-pad;
   }
 
   .ui-chip {
-    @apply inline-flex items-center rounded-lg bg-ink-100/80 px-2 py-1 text-[11px] font-medium text-ink-600;
+    @apply inline-flex items-center rounded-md bg-ink-100 px-2 py-0.5 text-2xs font-medium text-ink-600;
+  }
+
+  .ui-avatar {
+    @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-200 text-2xs font-bold text-ink-700;
+  }
+
+  .ui-dot {
+    @apply inline-block h-1.5 w-1.5 rounded-full;
   }
 }
