@@ -1,41 +1,54 @@
 import { Body, Controller, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Permission } from '@hhos/shared';
 import { AiService } from './ai.service';
 import { AuthGuard } from '../common/auth.guard';
-import { Permissions } from '../common/permissions.decorator';
+import { PermissionsGuard } from '../common/permissions.guard';
+import { RequirePermissions } from '../common/permissions.decorator';
 import { CurrentUser } from '../common/current-user.decorator';
 import type { AuthUser } from '../common/auth.types';
+import { requestMeta } from '../common/request-context';
 
+@ApiTags('ai')
+@ApiBearerAuth()
+@UseGuards(AuthGuard, PermissionsGuard)
 @Controller('v1/ai')
-@UseGuards(AuthGuard)
 export class AiController {
   constructor(private readonly ai: AiService) {}
 
   /**
    * Generate HITL suggestions for a visit (mocked until real models are wired).
    * Feature-flagged. Returns empty array when disabled.
+   * Does not write clinical facts — only returns advisory suggestions and audits generation.
    */
   @Post('visits/:visitId/suggestions')
-  @Permissions('visit:read')
+  @RequirePermissions(Permission.OASIS_READ)
   async visitSuggestions(
     @Param('visitId') visitId: string,
     @CurrentUser() user: AuthUser,
-    @Req() req: { requestId?: string },
+    @Req()
+    req: {
+      headers?: Record<string, string | string[] | undefined>;
+      ip?: string;
+    },
   ) {
+    const meta = requestMeta(req);
     const suggestions = await this.ai.generateVisitSuggestions({
       visitId,
-      orgId: user.orgId,
-      actorId: user.userId,
-      requestId: req.requestId,
+      user,
+      requestId: meta.requestId,
+      ip: meta.ip,
+      userAgent: meta.userAgent,
     });
     return { suggestions, enabled: this.ai.isEnabled() };
   }
 
   /**
    * Record clinician decision on a suggestion (accept / edit / reject).
-   * Always audited.
+   * Always audited. Does not auto-apply clinical content — callers must use normal clinical write paths.
    */
   @Post('suggestions/:id/decision')
-  @Permissions('visit:write')
+  @RequirePermissions(Permission.OASIS_WRITE)
   async decision(
     @Param('id') suggestionId: string,
     @Body()
@@ -46,17 +59,23 @@ export class AiController {
       targetResourceId?: string;
     },
     @CurrentUser() user: AuthUser,
-    @Req() req: { requestId?: string },
+    @Req()
+    req: {
+      headers?: Record<string, string | string[] | undefined>;
+      ip?: string;
+    },
   ) {
+    const meta = requestMeta(req);
     await this.ai.recordDecision({
       suggestionId,
-      orgId: user.orgId,
-      actorId: user.userId,
+      user,
       decision: body.decision,
       humanEdit: body.humanEdit,
       targetResourceType: body.targetResourceType,
       targetResourceId: body.targetResourceId,
-      requestId: req.requestId,
+      requestId: meta.requestId,
+      ip: meta.ip,
+      userAgent: meta.userAgent,
     });
     return { ok: true };
   }

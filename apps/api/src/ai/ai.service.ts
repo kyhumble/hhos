@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import type { AISuggestion, AmbientDraft, RiskScore } from '@hhos/shared';
 import { AuditService } from '../audit/audit.service';
+import type { AuthUser } from '../common/auth.types';
 import { isServiceAiEnabled } from '../common/features';
 
 /**
@@ -28,9 +29,10 @@ export class AiService {
 
   async generateVisitSuggestions(params: {
     visitId: string;
-    orgId: string;
-    actorId: string;
-    requestId?: string;
+    user: AuthUser;
+    requestId?: string | null;
+    ip?: string | null;
+    userAgent?: string | null;
   }): Promise<AISuggestion[]> {
     if (!this.isEnabled()) {
       return [];
@@ -48,10 +50,14 @@ export class AiService {
         provenance: {
           modelVersion: 'mock-v0.1',
           confidence: 0.78,
-          factors: ['prior visit narrative', 'stated functional status', 'edema observation'],
+          factors: [
+            'prior visit narrative',
+            'stated functional status',
+            'edema observation',
+          ],
           evidence: ['previous assessment delta', 'patient self-report'],
           generatedAt: now,
-          requestId: params.requestId,
+          requestId: params.requestId ?? undefined,
         },
         status: 'pending',
       },
@@ -67,7 +73,7 @@ export class AiService {
           confidence: 0.71,
           factors: ['stated need for setup', 'prior M1800'],
           generatedAt: now,
-          requestId: params.requestId,
+          requestId: params.requestId ?? undefined,
         },
         status: 'pending',
       },
@@ -82,27 +88,26 @@ export class AiService {
           confidence: 0.82,
           factors: ['gait change', 'edema', 'age band'],
           generatedAt: now,
-          requestId: params.requestId,
+          requestId: params.requestId ?? undefined,
         },
         status: 'pending',
       },
     ];
 
     try {
-      await this.audit.log({
+      await this.audit.writeFromUser(params.user, {
         action: 'ai.suggestion.generated',
-        orgId: params.orgId,
-        actorId: params.actorId,
         resourceType: 'Visit',
         resourceId: params.visitId,
-        metadata: {
+        after: {
           count: suggestions.length,
           types: suggestions.map((s) => s.type),
           modelVersion: 'mock-v0.1',
-          requestId: params.requestId,
         },
         requestId: params.requestId,
-      } as any);
+        ip: params.ip,
+        userAgent: params.userAgent,
+      });
     } catch (err) {
       this.log.warn(`AI generation audit failed: ${(err as Error).message}`);
     }
@@ -112,29 +117,29 @@ export class AiService {
 
   async recordDecision(params: {
     suggestionId: string;
-    orgId: string;
-    actorId: string;
+    user: AuthUser;
     decision: 'accepted' | 'edited' | 'rejected';
     humanEdit?: string;
     targetResourceType?: string;
     targetResourceId?: string;
-    requestId?: string;
+    requestId?: string | null;
+    ip?: string | null;
+    userAgent?: string | null;
   }): Promise<void> {
     try {
-      await this.audit.log({
+      await this.audit.writeFromUser(params.user, {
         action: `ai.suggestion.${params.decision}`,
-        orgId: params.orgId,
-        actorId: params.actorId,
         resourceType: params.targetResourceType ?? 'AISuggestion',
         resourceId: params.targetResourceId ?? params.suggestionId,
-        metadata: {
+        after: {
           suggestionId: params.suggestionId,
           decision: params.decision,
           hasEdit: Boolean(params.humanEdit),
-          requestId: params.requestId,
         },
         requestId: params.requestId,
-      } as any);
+        ip: params.ip,
+        userAgent: params.userAgent,
+      });
     } catch (err) {
       this.log.warn(`AI decision audit failed: ${(err as Error).message}`);
     }
