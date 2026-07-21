@@ -15,6 +15,7 @@ function navActive(pathname: string, href: string) {
 function pageTitle(pathname: string): string {
   if (pathname === '/') return 'Home';
   const map: Record<string, string> = {
+    '/referrals': 'Referrals',
     '/ai-assist': 'AI Assist',
     '/intake': 'Intake',
     '/oasis': 'Assessments',
@@ -22,8 +23,10 @@ function pageTitle(pathname: string): string {
     '/routing': 'Schedule',
     '/field-tasks': 'Visits',
     '/orders': 'Orders',
+    '/revenue': 'Revenue integrity',
     '/hospice': 'Hospice',
     '/billing': 'Billing',
+    '/integrations': 'Integrations',
     '/admin': 'Team & settings',
     '/onboard': 'New agency',
     '/patients/new': 'Add patient',
@@ -40,6 +43,7 @@ function pageTitle(pathname: string): string {
 function pageCrumb(pathname: string): string {
   if (pathname === '/') return 'Overview';
   if (
+    pathname.startsWith('/referrals') ||
     pathname.startsWith('/ai-assist') ||
     pathname.startsWith('/intake') ||
     pathname.startsWith('/oasis') ||
@@ -50,12 +54,19 @@ function pageCrumb(pathname: string): string {
   if (pathname.startsWith('/routing') || pathname.startsWith('/field')) return 'Field';
   if (
     pathname.startsWith('/orders') ||
+    pathname.startsWith('/revenue') ||
     pathname.startsWith('/hospice') ||
     pathname.startsWith('/billing')
   ) {
     return 'Records';
   }
-  if (pathname.startsWith('/admin') || pathname.startsWith('/onboard')) return 'Agency';
+  if (
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/onboard') ||
+    pathname.startsWith('/integrations')
+  ) {
+    return 'Agency';
+  }
   return 'Lumina';
 }
 
@@ -217,8 +228,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <Link href="/ai-assist" className="ui-btn-primary ui-btn-sm hidden sm:inline-flex">
-                AI Assist
+              <Link href="/referrals" className="ui-btn-primary ui-btn-sm hidden sm:inline-flex">
+                New referral
               </Link>
               <Link
                 href="/patients/new"
