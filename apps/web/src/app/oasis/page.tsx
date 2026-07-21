@@ -25,6 +25,10 @@ type Row = {
   submittedAt?: string | null;
 };
 
+function flagLabel(code: string) {
+  return code.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+}
+
 export default function OasisReviewPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +37,7 @@ export default function OasisReviewPage() {
   useEffect(() => {
     const token = getToken();
     if (!token) {
-      setError('Not logged in. Use /login first.');
+      setError('Sign in to review assessments.');
       return;
     }
     const path =
@@ -50,15 +54,15 @@ export default function OasisReviewPage() {
         setRows(data.data ?? []);
         setError(null);
       })
-      .catch(() => setError('API unreachable — is FEATURE_OASIS=true and API running?'));
+      .catch(() => setError('Could not reach the server.'));
   }, [mode]);
 
   return (
     <div className="ui-page">
       <PageHeader
-        eyebrow="Clinical"
-        title="OASIS assessments"
-        description="PDGM-critical subset. Flags are advisory only — clinician judgment required."
+        eyebrow="Care"
+        title="OASIS QA worklist"
+        description="Review and scrub assessments before they lock. Flags are guidance — clinical judgment stays with you."
         actions={
           <div className="flex gap-2">
             <Button
@@ -66,20 +70,53 @@ export default function OasisReviewPage() {
               variant={mode === 'review' ? 'primary' : 'secondary'}
               onClick={() => setMode('review')}
             >
-              In review
+              Needs review
             </Button>
             <Button
               size="sm"
               variant={mode === 'all' ? 'primary' : 'secondary'}
               onClick={() => setMode('all')}
             >
-              All
+              All assessments
             </Button>
+            <Link href="/revenue">
+              <Button size="sm" variant="ghost">
+                Revenue integrity
+              </Button>
+            </Link>
           </div>
         }
       />
 
       {error && <Alert tone="warn">{error}</Alert>}
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        <div className="ui-card-pad">
+          <div className="text-2xs font-semibold uppercase tracking-wide text-ink-400">In queue</div>
+          <div className="mt-1 font-display text-2xl font-semibold text-ink-900">{rows.length}</div>
+        </div>
+        <div className="ui-card-pad">
+          <div className="text-2xs font-semibold uppercase tracking-wide text-ink-400">
+            With flags
+          </div>
+          <div className="mt-1 font-display text-2xl font-semibold text-amber-700">
+            {rows.filter((r) => (r.flagsJson ?? []).length > 0).length}
+          </div>
+        </div>
+        <div className="ui-card-pad">
+          <div className="text-2xs font-semibold uppercase tracking-wide text-ink-400">
+            Avg completeness
+          </div>
+          <div className="mt-1 font-display text-2xl font-semibold text-ink-900">
+            {rows.length
+              ? Math.round(
+                  rows.reduce((s, r) => s + (r.completenessScore ?? 0), 0) / rows.length,
+                )
+              : 0}
+            %
+          </div>
+        </div>
+      </div>
 
       <div className="ui-table-wrap">
         <table className="ui-table">
@@ -88,7 +125,7 @@ export default function OasisReviewPage() {
               <th>Timepoint</th>
               <th>Status</th>
               <th>Complete</th>
-              <th>Flags</th>
+              <th>Scrub flags</th>
               <th />
             </tr>
           </thead>
@@ -97,8 +134,8 @@ export default function OasisReviewPage() {
               <tr>
                 <td colSpan={5}>
                   <EmptyState
-                    title="No assessments"
-                    body="Open an episode and create an SOC assessment."
+                    title="No assessments in this view"
+                    body="Open an episode and start an SOC assessment to populate the QA queue."
                   />
                 </td>
               </tr>
@@ -107,21 +144,24 @@ export default function OasisReviewPage() {
               <tr key={r.id}>
                 <td className="font-medium text-ink-900">{r.timepoint}</td>
                 <td>
-                  <Badge tone={statusTone(r.status)}>{r.status}</Badge>
+                  <Badge tone={statusTone(r.status)}>{r.status.replace(/_/g, ' ')}</Badge>
                 </td>
                 <td className="text-sm tabular-nums text-ink-700">{r.completenessScore}%</td>
                 <td>
                   <div className="flex flex-wrap gap-1">
+                    {(r.flagsJson ?? []).length === 0 && (
+                      <span className="text-xs text-ink-300">Clear</span>
+                    )}
                     {(r.flagsJson ?? []).slice(0, 4).map((f) => (
                       <Badge key={f.code} tone="warn">
-                        {f.code}
+                        {flagLabel(f.code)}
                       </Badge>
                     ))}
                   </div>
                 </td>
                 <td className="text-right">
-                  <Link className="ui-link text-sm font-medium" href={`/oasis/${r.id}`}>
-                    Open
+                  <Link className="ui-btn-secondary ui-btn-sm" href={`/oasis/${r.id}`}>
+                    Review
                   </Link>
                 </td>
               </tr>

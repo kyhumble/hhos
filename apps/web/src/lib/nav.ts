@@ -60,16 +60,33 @@ export const NAV: NavItem[] = [
     anyOf: [Permission.ORDER_READ, Permission.ORDER_WRITE, Permission.ORDER_SEND],
   },
   {
-    href: '/hospice',
-    label: 'Hospice',
+    href: '/revenue',
+    label: 'Revenue integrity',
     group: 'Records',
-    anyOf: [Permission.HOSPICE_READ, Permission.HOSPICE_WRITE],
+    anyOf: [
+      Permission.BILLING_READ,
+      Permission.ORDER_READ,
+      Permission.OASIS_READ,
+      Permission.COMPLIANCE_READ,
+    ],
   },
   {
     href: '/billing',
     label: 'Billing',
     group: 'Records',
     anyOf: [Permission.BILLING_READ, Permission.BILLING_WRITE],
+  },
+  {
+    href: '/hospice',
+    label: 'Hospice',
+    group: 'Records',
+    anyOf: [Permission.HOSPICE_READ, Permission.HOSPICE_WRITE],
+  },
+  {
+    href: '/integrations',
+    label: 'Integrations',
+    group: 'Agency',
+    anyOf: [Permission.ORG_SETTINGS, Permission.USER_ADMIN, Permission.BILLING_READ],
   },
   {
     href: '/admin',

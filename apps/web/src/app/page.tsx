@@ -8,58 +8,59 @@ import { NavIcon } from '@/lib/nav-icons';
 
 const QUEUES = [
   {
-    title: 'AI Assist',
-    desc: 'Draft notes and assessment help you review',
-    href: '/ai-assist',
-    icon: 'ai',
+    title: 'Referrals',
+    desc: 'Take new referrals and start intake',
+    href: '/referrals',
+    icon: 'referrals',
     featured: true,
   },
   {
     title: 'Intake',
-    desc: 'New referrals and start-of-care readiness',
+    desc: 'Start-of-care readiness and checklists',
     href: '/intake',
     icon: 'intake',
   },
   {
     title: 'Orders',
-    desc: 'Plans of care waiting on physician signature',
+    desc: 'Chase physician signatures on 485s and orders',
     href: '/orders',
     icon: 'orders',
   },
   {
+    title: 'Revenue integrity',
+    desc: 'Signatures, OASIS QA, and billing gaps',
+    href: '/revenue',
+    icon: 'billing',
+    featured: true,
+  },
+  {
     title: 'Assessments',
-    desc: 'OASIS forms ready for review or completion',
+    desc: 'OASIS QA worklist and scrub flags',
     href: '/oasis',
     icon: 'oasis',
   },
   {
     title: 'Billing',
-    desc: 'Episodes ready to bill and open gaps',
+    desc: 'Claim readiness and export packages',
     href: '/billing',
     icon: 'billing',
   },
   {
+    title: 'AI Assist',
+    desc: 'Draft notes and assessment help to review',
+    href: '/ai-assist',
+    icon: 'ai',
+  },
+  {
     title: 'Schedule',
-    desc: 'Suggested routes and visit assignments',
+    desc: 'Routes and visit assignments',
     href: '/routing',
     icon: 'routing',
   },
   {
-    title: 'Hospice',
-    desc: 'Elections, levels of care, and certifications',
-    href: '/hospice',
-    icon: 'hospice',
-  },
-  {
-    title: 'Field visits',
-    desc: 'Today’s tasks and hospital alerts',
-    href: '/field-tasks',
-    icon: 'field',
-  },
-  {
-    title: 'Team & settings',
-    desc: 'People, invites, and agency preferences',
-    href: '/admin',
+    title: 'Integrations',
+    desc: 'Hospitals, e-sign, clearinghouse, EVV',
+    href: '/integrations',
     icon: 'admin',
   },
 ];
@@ -91,12 +92,12 @@ export default function HomePage() {
       <PageHeader
         eyebrow="Home"
         title={first ? `Welcome back, ${first}` : 'Welcome to Lumina'}
-        description="Your day at a glance — patients, visits, and what needs attention."
+        description="From referral to claim — take work in, clear signatures, protect revenue."
         actions={
           user ? (
             <div className="flex gap-2">
-              <Link href="/ai-assist">
-                <Button>AI Assist</Button>
+              <Link href="/referrals">
+                <Button>New referral</Button>
               </Link>
               <Link href="/patients/new">
                 <Button variant="secondary">Add patient</Button>
@@ -113,7 +114,6 @@ export default function HomePage() {
       <Alert tone="info">
         <span>
           <strong className="font-semibold">Demo only.</strong> Sample data — not real patients.
-          Consent wording is placeholder and not final legal language.
         </span>
       </Alert>
 
@@ -180,26 +180,6 @@ export default function HomePage() {
             </Link>
           ))}
         </div>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2">
-        <Card>
-          <div className="ui-kicker">New agency</div>
-          <Link
-            href="/onboard"
-            className="mt-1 block text-sm font-semibold text-teal-700 hover:underline"
-          >
-            Set up your organization
-          </Link>
-          <p className="mt-1 text-sm text-ink-500">Invite your team and turn on the modules you need.</p>
-        </Card>
-        <Card>
-          <div className="ui-kicker">Need help?</div>
-          <p className="mt-1 text-sm font-semibold text-ink-900">You’re always in control</p>
-          <p className="mt-1 text-sm text-ink-500">
-            Suggestions never apply themselves. You review and approve every clinical decision.
-          </p>
-        </Card>
       </div>
     </div>
   );
