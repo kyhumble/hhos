@@ -5,25 +5,29 @@ export type NavItem = {
   href: string;
   label: string;
   group: string;
-  /** If set, user must have at least one of these permissions. Empty = always show when logged in. */
   anyOf?: PermissionCode[];
-  /** Show even when logged out */
   public?: boolean;
 };
 
 export const NAV: NavItem[] = [
   { href: '/', label: 'Home', group: 'Overview' },
   {
-    href: '/ai-assist',
-    label: 'AI Assist',
+    href: '/referrals',
+    label: 'Referrals',
     group: 'Care',
-    anyOf: [Permission.OASIS_READ, Permission.VISIT_TASK_READ, Permission.EPISODE_READ],
+    anyOf: [Permission.REFERRAL_CREATE, Permission.REFERRAL_WRITE],
   },
   {
     href: '/intake',
     label: 'Intake',
     group: 'Care',
     anyOf: [Permission.EPISODE_READ, Permission.PATIENT_READ, Permission.REFERRAL_CREATE],
+  },
+  {
+    href: '/ai-assist',
+    label: 'AI Assist',
+    group: 'Care',
+    anyOf: [Permission.OASIS_READ, Permission.VISIT_TASK_READ, Permission.EPISODE_READ],
   },
   {
     href: '/oasis',
@@ -82,7 +86,6 @@ function hasAny(user: SessionUser | null, anyOf?: PermissionCode[]): boolean {
   return anyOf.some((p) => user.permissions.includes(p));
 }
 
-/** Filter nav by session permissions. Logged-out users see public items + home. */
 export function navForUser(user: SessionUser | null): NavItem[] {
   return NAV.filter((item) => {
     if (item.public) return true;
