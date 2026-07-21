@@ -5,21 +5,21 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Existing primary brand (blue) kept for compatibility
+        // Lumina primary = calm teal (was blue). All ui-btn-primary, badges, links follow this.
         brand: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
-          950: '#172554',
+          50: '#f0fdfa',
+          100: '#ccfbf1',
+          200: '#99f6e4',
+          300: '#5eead4',
+          400: '#2dd4bf',
+          500: '#14b8a6',
+          600: '#0d9488',
+          700: '#0f766e',
+          800: '#115e59',
+          900: '#134e4a',
+          950: '#042f2e',
         },
-        // Lumina calm teal scale — use for AI surfaces, accents, elevated calm UI
+        // Keep explicit teal alias in sync with brand for intentional teal-* usage
         teal: {
           50: '#f0fdfa',
           100: '#ccfbf1',
@@ -47,15 +47,15 @@ const config: Config = {
           950: '#020617',
         },
         canvas: {
-          DEFAULT: '#f1f5f9',
+          DEFAULT: '#f4f7f8',
           soft: '#f8fafc',
           calm: '#f0fdfa',
         },
         side: {
-          DEFAULT: '#0b1220',
-          elev: '#111827',
-          border: '#1f2937',
-          muted: '#94a3b8',
+          DEFAULT: '#0a1628',
+          elev: '#0f1f33',
+          border: '#1a2d45',
+          muted: '#8ba3b8',
           active: '#0d9488',
         },
       },
