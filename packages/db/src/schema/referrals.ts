@@ -60,6 +60,12 @@ export const referrals = pgTable(
     intakeOwnerId: uuid('intake_owner_id').references(() => users.id),
     completenessScore: integer('completeness_score').notNull().default(0),
     idempotencyKey: text('idempotency_key'),
+    /** Attached referral document (text extract + metadata; binary via S3 later) */
+    documentFileName: text('document_file_name'),
+    documentContentType: text('document_content_type'),
+    documentText: text('document_text'),
+    /** Full structured extract JSON from ingest */
+    extractedJson: text('extracted_json'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: uuid('created_by').references(() => users.id),
