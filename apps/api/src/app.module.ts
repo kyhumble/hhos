@@ -23,6 +23,7 @@ import { DbModule } from './common/db.module';
 import { CommonDomainModule } from './common/common.module';
 import { StorageModule } from './storage/storage.module';
 import { PhotoCryptoModule } from './photo-crypto/photo-crypto.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { PhotoCryptoModule } from './photo-crypto/photo-crypto.module';
     OrdersModule,
     HospiceModule,
     BillingModule,
+    AiModule,
   ],
 })
 export class AppModule {}
