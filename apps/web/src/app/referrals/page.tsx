@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Alert,
@@ -12,16 +12,18 @@ import {
   Input,
   PageHeader,
   Select,
+  Textarea,
+  statusTone,
 } from '@/components/ui';
-import { API_URL, authHeaders, getToken, readApiError } from '@/lib/api';
+import { API_URL, authHeaders, getToken } from '@/lib/api';
 
-type Referral = {
+type ReferralRow = {
   id: string;
   status: string;
   sourceType: string;
   sourceName: string;
   receivedAt: string;
-  acuity: string | null;
+  acuity?: string | null;
   completenessScore: number;
   patientId: string;
   patientFirstName: string;
@@ -30,220 +32,250 @@ type Referral = {
   reasonForReferral: string;
 };
 
-function statusMeta(status: string): {
-  label: string;
-  tone: 'neutral' | 'brand' | 'success' | 'warn' | 'danger';
-} {
-  switch (status) {
-    case 'new':
-      return { label: 'New', tone: 'brand' };
-    case 'in_review':
-      return { label: 'In review', tone: 'warn' };
-    case 'accepted':
-      return { label: 'Accepted', tone: 'success' };
-    case 'converted':
-      return { label: 'In intake', tone: 'success' };
-    case 'declined':
-      return { label: 'Declined', tone: 'danger' };
-    case 'cancelled':
-      return { label: 'Cancelled', tone: 'neutral' };
-    default:
-      return { label: status, tone: 'neutral' };
-  }
-}
+type Extracted = {
+  patient?: { firstName?: string; lastName?: string; dob?: string };
+  sourceType?: string;
+  sourceName?: string;
+  sourceContact?: string;
+  acuity?: string;
+  reasonForReferral?: string;
+  primaryDiagnosisText?: string;
+  primaryDiagnosisIcd10?: string;
+  externalRef?: string;
+  confidence: number;
+  factors: string[];
+};
 
-function sourceLabel(t: string) {
-  const map: Record<string, string> = {
-    hospital: 'Hospital',
-    physician: 'Physician',
-    snf: 'SNF / facility',
-    self: 'Self / family',
-    other: 'Other',
-  };
-  return map[t] ?? t;
-}
-
-function acuityLabel(a: string | null) {
-  if (!a || a === 'routine') return null;
-  if (a === 'urgent') return 'Urgent';
-  if (a === 'expedited') return 'Expedited';
-  return a;
-}
+const SAMPLE_DOC = `HOME HEALTH REFERRAL
+Facility: Memorial Hospital Case Management
+Patient Name: Jane Doe
+DOB: 03/15/1948
+MRN: MH-48291
+Primary Diagnosis: Congestive heart failure (I50.9)
+Reason for referral: Skilled nursing for medication teaching and home safety after discharge
+Referring physician: Dr. Smith
+Phone: 405-555-0142
+Urgent discharge — please evaluate for home health SOC within 48 hours`;
 
 export default function ReferralsPage() {
-  const [items, setItems] = useState<Referral[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<ReferralRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'open' | 'all'>('open');
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
+  const [busy, setBusy] = useState(false);
+  const [showManual, setShowManual] = useState(false);
+  const [docText, setDocText] = useState('');
+  const [fileName, setFileName] = useState<string | undefined>();
+  const [extracted, setExtracted] = useState<Extracted | null>(null);
+  const [emailSim, setEmailSim] = useState({
+    from: 'casemanager@hospital.example',
+    subject: 'Home health referral — Jane Doe',
+    text: SAMPLE_DOC,
+  });
+
+  const [manual, setManual] = useState({
     firstName: '',
     lastName: '',
     dob: '',
     sourceType: 'hospital',
     sourceName: '',
-    sourceContact: '',
-    acuity: 'routine',
     reasonForReferral: '',
     primaryDiagnosisText: '',
     primaryDiagnosisIcd10: '',
+    acuity: 'routine',
   });
 
-  const token = typeof window !== 'undefined' ? getToken() : null;
-
   const load = useCallback(async () => {
-    if (!token) {
+    const t = getToken();
+    if (!t) {
       setError('Sign in to manage referrals.');
-      setLoading(false);
       return;
     }
-    setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/v1/referrals`, {
-        headers: { ...authHeaders(token) },
-      });
+      const res = await fetch(`${API_URL}/v1/referrals`, { headers: authHeaders(t) });
+      const data = await res.json();
       if (!res.ok) {
-        const err = await readApiError(res);
-        setError(err.message);
-        setLoading(false);
+        setError(data.error?.message ?? 'Failed to load referrals');
         return;
       }
-      const data = await res.json();
-      setItems(data.data ?? []);
+      setRows(data.data ?? []);
       setError(null);
     } catch {
-      setError('Could not reach the server. Is the API running?');
-    } finally {
-      setLoading(false);
+      setError('Could not reach the server.');
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const openItems = useMemo(
-    () => items.filter((r) => r.status === 'new' || r.status === 'in_review'),
-    [items],
-  );
-  const visible = filter === 'open' ? openItems : items;
-
-  async function createReferral(e: React.FormEvent) {
-    e.preventDefault();
-    if (!token) return;
-    setError(null);
+  async function ingestDocument(createDraft = true) {
+    const t = getToken();
+    if (!t || !docText.trim()) return;
+    setBusy(true);
     setMsg(null);
-    const body = {
-      patient: {
-        firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(),
-        dob: form.dob,
-        preferredLanguage: 'en',
-      },
-      sourceType: form.sourceType,
-      sourceName: form.sourceName.trim(),
-      sourceContact: form.sourceContact.trim() || undefined,
-      acuity: form.acuity,
-      reasonForReferral: form.reasonForReferral.trim(),
-      primaryDiagnosisText: form.primaryDiagnosisText.trim() || undefined,
-      primaryDiagnosisIcd10: form.primaryDiagnosisIcd10.trim() || undefined,
-      requestedServices: ['skilled_nursing'],
-    };
+    try {
+      const res = await fetch(`${API_URL}/v1/referrals/ingest`, {
+        method: 'POST',
+        headers: { ...authHeaders(t), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: docText,
+          fileName: fileName ?? 'pasted-referral.txt',
+          createDraft,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error?.message ?? 'Ingest failed');
+        return;
+      }
+      setExtracted(data.extracted ?? null);
+      setMsg(data.message ?? 'Extracted');
+      if (data.draftCreated) {
+        setDocText('');
+        await load();
+      } else if (data.extracted?.patient) {
+        setManual((m) => ({
+          ...m,
+          firstName: data.extracted.patient.firstName ?? m.firstName,
+          lastName: data.extracted.patient.lastName ?? m.lastName,
+          dob: data.extracted.patient.dob ?? m.dob,
+          sourceType: data.extracted.sourceType ?? m.sourceType,
+          sourceName: data.extracted.sourceName ?? m.sourceName,
+          reasonForReferral: data.extracted.reasonForReferral ?? m.reasonForReferral,
+          primaryDiagnosisText: data.extracted.primaryDiagnosisText ?? m.primaryDiagnosisText,
+          primaryDiagnosisIcd10: data.extracted.primaryDiagnosisIcd10 ?? m.primaryDiagnosisIcd10,
+          acuity: data.extracted.acuity ?? m.acuity,
+        }));
+        setShowManual(true);
+      }
+    } catch {
+      setError('Could not ingest document.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onFile(file: File | null) {
+    if (!file) return;
+    setFileName(file.name);
+    const text = await file.text();
+    setDocText(text);
+  }
+
+  async function runEmailInbound() {
+    const t = getToken();
+    if (!t) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`${API_URL}/v1/referrals/email-inbound`, {
+        method: 'POST',
+        headers: { ...authHeaders(t), 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailSim),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error?.message ?? 'Email ingest failed');
+        return;
+      }
+      setExtracted(data.extracted ?? null);
+      setMsg(data.message ?? 'Processed');
+      if (data.draftCreated) await load();
+    } catch {
+      setError('Could not process email.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createManual(e: React.FormEvent) {
+    e.preventDefault();
+    const t = getToken();
+    if (!t) return;
+    setBusy(true);
     try {
       const res = await fetch(`${API_URL}/v1/referrals`, {
         method: 'POST',
-        headers: {
-          ...authHeaders(token),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
+        headers: { ...authHeaders(t), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patient: {
+            firstName: manual.firstName,
+            lastName: manual.lastName,
+            dob: manual.dob,
+            preferredLanguage: 'en',
+          },
+          sourceType: manual.sourceType,
+          sourceName: manual.sourceName || 'Manual entry',
+          acuity: manual.acuity,
+          reasonForReferral: manual.reasonForReferral || 'Referral intake',
+          primaryDiagnosisText: manual.primaryDiagnosisText || undefined,
+          primaryDiagnosisIcd10: manual.primaryDiagnosisIcd10 || undefined,
+          requestedServices: ['skilled_nursing'],
+        }),
       });
+      const data = await res.json();
       if (!res.ok) {
-        const err = await readApiError(res);
-        setError(err.message);
+        setError(data.error?.message ?? 'Create failed');
         return;
       }
-      setMsg('Referral received. Review and accept to start intake.');
-      setShowForm(false);
-      setForm({
-        firstName: '',
-        lastName: '',
-        dob: '',
-        sourceType: 'hospital',
-        sourceName: '',
-        sourceContact: '',
-        acuity: 'routine',
-        reasonForReferral: '',
-        primaryDiagnosisText: '',
-        primaryDiagnosisIcd10: '',
-      });
-      setFilter('open');
+      setMsg('Referral created');
+      setShowManual(false);
       await load();
     } catch {
       setError('Could not create referral.');
+    } finally {
+      setBusy(false);
     }
   }
 
   async function accept(id: string) {
-    if (!token) return;
-    setBusyId(id);
-    setError(null);
+    const t = getToken();
+    if (!t) return;
+    setBusy(true);
     try {
       const res = await fetch(`${API_URL}/v1/referrals/${id}/accept`, {
         method: 'POST',
-        headers: { ...authHeaders(token) },
+        headers: authHeaders(t),
       });
       const data = await res.json();
       if (!res.ok) {
-        const err = await readApiError(res);
-        setError(err.message);
+        setError(data.error?.message ?? 'Accept failed');
         return;
       }
-      const episodeId = data.episode?.id;
-      setMsg(
-        episodeId
-          ? 'Accepted — intake episode started. SOC clock is running.'
-          : 'Referral accepted.',
-      );
+      setMsg('Accepted — intake started (SOC clock running)');
       await load();
-      if (episodeId) {
-        // Soft navigate hint via message; user can open intake
+      if (data.episode?.id) {
+        window.location.href = `/episodes/${data.episode.id}`;
       }
     } catch {
       setError('Could not accept referral.');
     } finally {
-      setBusyId(null);
+      setBusy(false);
     }
   }
 
   async function decline(id: string) {
-    if (!token) return;
-    const reason = window.prompt('Reason for declining this referral?');
-    if (!reason?.trim()) return;
-    setBusyId(id);
-    setError(null);
+    const reason = window.prompt('Reason for decline?') || 'Declined by coordinator';
+    const t = getToken();
+    if (!t) return;
+    setBusy(true);
     try {
       const res = await fetch(`${API_URL}/v1/referrals/${id}/decline`, {
         method: 'POST',
-        headers: {
-          ...authHeaders(token),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ reason: reason.trim() }),
+        headers: { ...authHeaders(t), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
       });
       if (!res.ok) {
-        const err = await readApiError(res);
-        setError(err.message);
+        const data = await res.json();
+        setError(data.error?.message ?? 'Decline failed');
         return;
       }
-      setMsg('Referral declined.');
+      setMsg('Referral declined');
       await load();
     } catch {
-      setError('Could not decline referral.');
+      setError('Could not decline.');
     } finally {
-      setBusyId(null);
+      setBusy(false);
     }
   }
 
@@ -252,264 +284,317 @@ export default function ReferralsPage() {
       <PageHeader
         eyebrow="Care"
         title="Referrals"
-        description="Take new referrals, review them, and accept to start intake. Declining requires a reason."
+        description="Upload or email a referral, extract the details, review, then accept to start intake."
         actions={
           <div className="flex gap-2">
-            <Link href="/intake">
-              <Button variant="secondary" size="sm">
-                Intake worklist
-              </Button>
-            </Link>
-            <Button size="sm" onClick={() => setShowForm((v) => !v)}>
-              {showForm ? 'Close form' : 'New referral'}
+            <Button size="sm" variant="secondary" onClick={() => setShowManual((v) => !v)}>
+              {showManual ? 'Hide form' : 'Manual entry'}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => void load()}>
+              Refresh
             </Button>
           </div>
         }
       />
 
       {error && <Alert tone="error">{error}</Alert>}
-      {msg && <Alert tone="success">{msg}</Alert>}
+      {msg && <Alert tone="info">{msg}</Alert>}
 
-      <div className="grid gap-2 sm:grid-cols-3">
-        <button
-          type="button"
-          onClick={() => setFilter('open')}
-          className={`rounded-xl border bg-white px-4 py-3 text-left shadow-soft ${
-            filter === 'open' ? 'border-teal-300 ring-2 ring-teal-100' : 'border-ink-100'
-          }`}
-        >
-          <div className="text-2xs font-semibold uppercase tracking-wide text-teal-700">
-            Needs decision
-          </div>
-          <div className="font-display text-2xl font-semibold text-ink-900">{openItems.length}</div>
-        </button>
-        <button
-          type="button"
-          onClick={() => setFilter('all')}
-          className={`rounded-xl border bg-white px-4 py-3 text-left shadow-soft ${
-            filter === 'all' ? 'border-ink-300 ring-2 ring-ink-100' : 'border-ink-100'
-          }`}
-        >
-          <div className="text-2xs font-semibold uppercase tracking-wide text-ink-500">All</div>
-          <div className="font-display text-2xl font-semibold text-ink-900">{items.length}</div>
-        </button>
-        <div className="rounded-xl border border-ink-100 bg-white px-4 py-3 shadow-soft">
-          <div className="text-2xs font-semibold uppercase tracking-wide text-ink-500">Flow</div>
-          <p className="mt-1 text-sm text-ink-600">
-            Receive → Accept → Intake → SOC → Orders → Bill
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <div className="ui-kicker">Document upload</div>
+          <h2 className="mt-1 text-sm font-semibold text-ink-900">Paste or upload referral text</h2>
+          <p className="mt-1 text-sm text-ink-500">
+            Discharge summary, fax text, or .txt / .eml body. We extract patient, diagnosis, and source
+            for your review — nothing auto-admits.
           </p>
-        </div>
+          <div className="mt-3 space-y-3">
+            <input
+              type="file"
+              accept=".txt,.csv,.eml,.md,text/*"
+              className="block w-full text-sm text-ink-600"
+              onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
+            />
+            <Textarea
+              rows={8}
+              value={docText}
+              onChange={(e) => setDocText(e.target.value)}
+              placeholder="Paste referral email or discharge summary here…"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                disabled={busy || !docText.trim()}
+                onClick={() => void ingestDocument(true)}
+              >
+                Extract & create draft
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={busy || !docText.trim()}
+                onClick={() => void ingestDocument(false)}
+              >
+                Extract only
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setDocText(SAMPLE_DOC);
+                  setFileName('sample-referral.txt');
+                }}
+              >
+                Load sample
+              </Button>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <div className="ui-kicker">Email integration</div>
+          <h2 className="mt-1 text-sm font-semibold text-ink-900">Inbound referral email</h2>
+          <p className="mt-1 text-sm text-ink-500">
+            Forward hospital referral mail to your agency inbox, then POST the body to{' '}
+            <code className="rounded bg-ink-50 px-1 text-xs">/v1/referrals/email-inbound</code>.
+            Demo simulator below.
+          </p>
+          <div className="mt-3 space-y-2">
+            <Field label="From">
+              <Input
+                value={emailSim.from}
+                onChange={(e) => setEmailSim({ ...emailSim, from: e.target.value })}
+              />
+            </Field>
+            <Field label="Subject">
+              <Input
+                value={emailSim.subject}
+                onChange={(e) => setEmailSim({ ...emailSim, subject: e.target.value })}
+              />
+            </Field>
+            <Field label="Body">
+              <Textarea
+                rows={5}
+                value={emailSim.text}
+                onChange={(e) => setEmailSim({ ...emailSim, text: e.target.value })}
+              />
+            </Field>
+            <Button size="sm" disabled={busy} onClick={() => void runEmailInbound()}>
+              Simulate inbound email
+            </Button>
+          </div>
+          <div className="mt-4 rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-600">
+            Production: point Mailgun/SendGrid inbound parse or Microsoft Graph subscription at this
+            endpoint with a service account token. See{' '}
+            <Link href="/integrations" className="ui-link">
+              Integrations
+            </Link>
+            .
+          </div>
+        </Card>
       </div>
 
-      {showForm && (
+      {extracted && (
         <Card className="border-teal-100">
-          <h2 className="ui-section-title mb-1">New referral</h2>
-          <p className="mb-4 text-sm text-ink-500">
-            Enter the patient and who sent them. Accepting later starts the intake episode and SOC
-            clock.
-          </p>
-          <form onSubmit={(e) => void createReferral(e)} className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="First name">
-                <Input
-                  required
-                  value={form.firstName}
-                  onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-                />
-              </Field>
-              <Field label="Last name">
-                <Input
-                  required
-                  value={form.lastName}
-                  onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-                />
-              </Field>
-              <Field label="Date of birth">
-                <Input
-                  required
-                  type="date"
-                  value={form.dob}
-                  onChange={(e) => setForm((f) => ({ ...f, dob: e.target.value }))}
-                />
-              </Field>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="ui-kicker">Extraction result</div>
+              <p className="mt-0.5 text-sm text-ink-700">
+                Confidence {Math.round((extracted.confidence ?? 0) * 100)}% ·{' '}
+                {(extracted.factors ?? []).join(', ') || 'no factors'}
+              </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="Source type">
-                <Select
-                  value={form.sourceType}
-                  onChange={(e) => setForm((f) => ({ ...f, sourceType: e.target.value }))}
-                >
-                  <option value="hospital">Hospital</option>
-                  <option value="physician">Physician</option>
-                  <option value="snf">SNF / facility</option>
-                  <option value="self">Self / family</option>
-                  <option value="other">Other</option>
-                </Select>
-              </Field>
-              <Field label="Source name">
-                <Input
-                  required
-                  placeholder="e.g. Mercy Hospital case management"
-                  value={form.sourceName}
-                  onChange={(e) => setForm((f) => ({ ...f, sourceName: e.target.value }))}
-                />
-              </Field>
-              <Field label="Priority">
-                <Select
-                  value={form.acuity}
-                  onChange={(e) => setForm((f) => ({ ...f, acuity: e.target.value }))}
-                >
-                  <option value="routine">Routine</option>
-                  <option value="urgent">Urgent</option>
-                  <option value="expedited">Expedited</option>
-                </Select>
-              </Field>
+            <Badge tone={extracted.confidence >= 0.6 ? 'success' : 'warn'}>
+              {extracted.confidence >= 0.6 ? 'Strong extract' : 'Review carefully'}
+            </Badge>
+          </div>
+          <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-2xs uppercase text-ink-400">Patient</dt>
+              <dd className="font-medium text-ink-900">
+                {extracted.patient?.lastName ?? '—'}, {extracted.patient?.firstName ?? '—'} · DOB{' '}
+                {extracted.patient?.dob ?? '—'}
+              </dd>
             </div>
-            <Field label="Source contact (optional)">
-              <Input
-                placeholder="Phone or email"
-                value={form.sourceContact}
-                onChange={(e) => setForm((f) => ({ ...f, sourceContact: e.target.value }))}
-              />
-            </Field>
-            <Field label="Reason for referral">
+            <div>
+              <dt className="text-2xs uppercase text-ink-400">Source</dt>
+              <dd className="font-medium text-ink-900">
+                {extracted.sourceName ?? '—'} ({extracted.sourceType ?? '—'})
+              </dd>
+            </div>
+            <div>
+              <dt className="text-2xs uppercase text-ink-400">Diagnosis</dt>
+              <dd className="font-medium text-ink-900">
+                {extracted.primaryDiagnosisText ?? '—'}{' '}
+                {extracted.primaryDiagnosisIcd10 ? (
+                  <span className="font-mono text-xs">{extracted.primaryDiagnosisIcd10}</span>
+                ) : null}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-2xs uppercase text-ink-400">Reason</dt>
+              <dd className="text-ink-800">{extracted.reasonForReferral ?? '—'}</dd>
+            </div>
+          </dl>
+        </Card>
+      )}
+
+      {showManual && (
+        <Card>
+          <h2 className="text-sm font-semibold text-ink-900">Manual referral</h2>
+          <form onSubmit={(e) => void createManual(e)} className="mt-3 grid gap-3 sm:grid-cols-2">
+            <Field label="First name">
               <Input
                 required
-                placeholder="Why is home health needed?"
-                value={form.reasonForReferral}
-                onChange={(e) => setForm((f) => ({ ...f, reasonForReferral: e.target.value }))}
+                value={manual.firstName}
+                onChange={(e) => setManual({ ...manual, firstName: e.target.value })}
               />
             </Field>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Primary diagnosis (optional)">
-                <Input
-                  value={form.primaryDiagnosisText}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, primaryDiagnosisText: e.target.value }))
-                  }
-                />
-              </Field>
-              <Field label="ICD-10 (optional)">
-                <Input
-                  className="font-mono"
-                  placeholder="e.g. I50.9"
-                  value={form.primaryDiagnosisIcd10}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, primaryDiagnosisIcd10: e.target.value }))
-                  }
-                />
-              </Field>
-            </div>
-            <div className="flex gap-2">
-              <Button type="submit">Save referral</Button>
-              <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>
-                Cancel
+            <Field label="Last name">
+              <Input
+                required
+                value={manual.lastName}
+                onChange={(e) => setManual({ ...manual, lastName: e.target.value })}
+              />
+            </Field>
+            <Field label="Date of birth">
+              <Input
+                type="date"
+                required
+                value={manual.dob}
+                onChange={(e) => setManual({ ...manual, dob: e.target.value })}
+              />
+            </Field>
+            <Field label="Source type">
+              <Select
+                value={manual.sourceType}
+                onChange={(e) => setManual({ ...manual, sourceType: e.target.value })}
+              >
+                <option value="hospital">Hospital</option>
+                <option value="physician">Physician</option>
+                <option value="snf">SNF</option>
+                <option value="self">Self</option>
+                <option value="other">Other</option>
+              </Select>
+            </Field>
+            <Field label="Source name">
+              <Input
+                value={manual.sourceName}
+                onChange={(e) => setManual({ ...manual, sourceName: e.target.value })}
+              />
+            </Field>
+            <Field label="Acuity">
+              <Select
+                value={manual.acuity}
+                onChange={(e) => setManual({ ...manual, acuity: e.target.value })}
+              >
+                <option value="routine">Routine</option>
+                <option value="urgent">Urgent</option>
+                <option value="expedited">Expedited</option>
+              </Select>
+            </Field>
+            <Field label="Reason for referral" className="sm:col-span-2">
+              <Textarea
+                required
+                rows={2}
+                value={manual.reasonForReferral}
+                onChange={(e) => setManual({ ...manual, reasonForReferral: e.target.value })}
+              />
+            </Field>
+            <Field label="Diagnosis text">
+              <Input
+                value={manual.primaryDiagnosisText}
+                onChange={(e) => setManual({ ...manual, primaryDiagnosisText: e.target.value })}
+              />
+            </Field>
+            <Field label="ICD-10">
+              <Input
+                className="font-mono"
+                value={manual.primaryDiagnosisIcd10}
+                onChange={(e) => setManual({ ...manual, primaryDiagnosisIcd10: e.target.value })}
+              />
+            </Field>
+            <div>
+              <Button type="submit" disabled={busy}>
+                Save referral
               </Button>
             </div>
           </form>
         </Card>
       )}
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-ink-900">
-            {filter === 'open' ? 'Needs a decision' : 'All referrals'}
-          </h2>
-          <Button size="sm" variant="ghost" onClick={() => void load()} disabled={loading}>
-            Refresh
-          </Button>
-        </div>
-
-        {loading ? (
-          <Card>
-            <p className="py-8 text-center text-sm text-ink-500">Loading referrals…</p>
-          </Card>
-        ) : visible.length === 0 ? (
-          <Card>
-            <EmptyState
-              title={filter === 'open' ? 'No open referrals' : 'No referrals yet'}
-              body="Add a referral to start the intake process, or accept one when it arrives."
-              action={
-                <Button size="sm" onClick={() => setShowForm(true)}>
-                  New referral
-                </Button>
-              }
-            />
-          </Card>
-        ) : (
-          visible.map((r) => {
-            const st = statusMeta(r.status);
-            const ac = acuityLabel(r.acuity);
-            const canDecide = r.status === 'new' || r.status === 'in_review';
-            const name = `${r.patientLastName}, ${r.patientFirstName}`;
-            return (
-              <div
-                key={r.id}
-                className="rounded-xl border border-ink-100 bg-white p-4 shadow-soft"
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold text-ink-900">{name}</span>
-                      <Badge tone={st.tone}>{st.label}</Badge>
-                      {ac && <Badge tone="warn">{ac}</Badge>}
+      <div>
+        <h2 className="mb-2 text-sm font-semibold text-ink-900">Referral queue</h2>
+        <div className="ui-table-wrap">
+          <table className="ui-table">
+            <thead>
+              <tr>
+                <th>Patient</th>
+                <th>Source</th>
+                <th>Status</th>
+                <th>Acuity</th>
+                <th>Received</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={6}>
+                    <EmptyState
+                      title="No referrals yet"
+                      body="Upload a document, simulate an email, or use manual entry."
+                    />
+                  </td>
+                </tr>
+              )}
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td className="font-medium text-ink-900">
+                    {r.patientLastName}, {r.patientFirstName}
+                    <div className="text-xs font-normal text-ink-400">{r.mrn}</div>
+                  </td>
+                  <td className="text-sm text-ink-700">
+                    {r.sourceName}
+                    <div className="text-xs text-ink-400">{r.sourceType}</div>
+                  </td>
+                  <td>
+                    <Badge tone={statusTone(r.status)}>{r.status.replace(/_/g, ' ')}</Badge>
+                  </td>
+                  <td className="text-sm capitalize text-ink-600">{r.acuity ?? '—'}</td>
+                  <td className="text-sm tabular-nums text-ink-600">
+                    {new Date(r.receivedAt).toLocaleString()}
+                  </td>
+                  <td className="text-right">
+                    <div className="flex justify-end gap-1.5">
+                      {(r.status === 'new' || r.status === 'in_review') && (
+                        <>
+                          <Button size="sm" disabled={busy} onClick={() => void accept(r.id)}>
+                            Accept
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={busy}
+                            onClick={() => void decline(r.id)}
+                          >
+                            Decline
+                          </Button>
+                        </>
+                      )}
+                      {r.status === 'accepted' && (
+                        <Link href="/intake" className="ui-link text-sm font-medium">
+                          Intake
+                        </Link>
+                      )}
                     </div>
-                    <p className="mt-1 text-sm text-ink-600">
-                      {sourceLabel(r.sourceType)} · {r.sourceName}
-                      <span className="text-ink-300"> · </span>
-                      MRN {r.mrn}
-                    </p>
-                    <p className="mt-1 text-sm text-ink-700">{r.reasonForReferral}</p>
-                    <p className="mt-1 text-xs text-ink-400">
-                      Received{' '}
-                      {new Date(r.receivedAt).toLocaleString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {canDecide && (
-                      <>
-                        <Button
-                          size="sm"
-                          disabled={busyId === r.id}
-                          onClick={() => void accept(r.id)}
-                        >
-                          Accept & start intake
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          disabled={busyId === r.id}
-                          onClick={() => void decline(r.id)}
-                        >
-                          Decline
-                        </Button>
-                      </>
-                    )}
-                    <Link href={`/patients/${r.patientId}`}>
-                      <Button size="sm" variant="ghost">
-                        Patient chart
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-
-      <Card className="bg-ink-50/40">
-        <p className="text-sm text-ink-600">
-          <span className="font-semibold text-ink-800">How this works.</span> Save a referral when
-          it arrives. Accept creates a pre-admit episode and starts the start-of-care clock. From
-          there, complete intake, assessments, orders, and billing readiness.
-        </p>
-      </Card>
     </div>
   );
 }

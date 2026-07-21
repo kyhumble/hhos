@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -53,6 +53,25 @@ type Episode = {
   };
 };
 
+const PATHWAY = [
+  { key: 'referral', label: 'Referral' },
+  { key: 'screening', label: 'Screening' },
+  { key: 'f2f_consents', label: 'F2F / Consents' },
+  { key: 'ready_soc', label: 'Ready for SOC' },
+  { key: 'active', label: 'Active' },
+] as const;
+
+function checklistLabel(code: string) {
+  return code
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function isDone(item: ChecklistItem) {
+  return item.status === 'complete' || item.status === 'done' || item.status === 'signed';
+}
+
 export default function EpisodeDetailPage() {
   const params = useParams();
   const id = params.id as string;
@@ -81,17 +100,13 @@ export default function EpisodeDetailPage() {
   const load = useCallback(async () => {
     const t = getToken();
     if (!t) {
-      setError('Not logged in. Use /login first.');
+      setError('Sign in to view this episode.');
       return;
     }
     try {
       const [epRes, tplRes] = await Promise.all([
-        fetch(`${API_URL}/v1/episodes/${id}`, {
-          headers: authHeaders(t),
-        }),
-        fetch(`${API_URL}/v1/consent-templates?locale=en`, {
-          headers: authHeaders(t),
-        }),
+        fetch(`${API_URL}/v1/episodes/${id}`, { headers: authHeaders(t) }),
+        fetch(`${API_URL}/v1/consent-templates?locale=en`, { headers: authHeaders(t) }),
       ]);
       const epData = await epRes.json();
       const tplData = await tplRes.json();
@@ -110,16 +125,17 @@ export default function EpisodeDetailPage() {
           ...f,
           signerName: `${epData.patient.firstName} ${epData.patient.lastName}`,
           typedName: `${epData.patient.firstName} ${epData.patient.lastName}`,
-          signerType:
-            epData.patient.capacityStatus === 'impaired' ? 'surrogate' : 'patient',
         }));
       }
-      setTemplates(tplData.data ?? []);
-      if (!consentForm.templateId && tplData.data?.[0]) {
-        setConsentForm((f) => ({ ...f, templateId: tplData.data[0].id }));
+      if (tplRes.ok) {
+        setTemplates(tplData.data ?? []);
+        if (!consentForm.templateId && tplData.data?.[0]) {
+          setConsentForm((f) => ({ ...f, templateId: tplData.data[0].id }));
+        }
       }
+      setError(null);
     } catch {
-      setError('API unreachable');
+      setError('Could not reach the server.');
     }
   }, [id, consentForm.templateId]);
 
@@ -127,34 +143,99 @@ export default function EpisodeDetailPage() {
     void load();
   }, [load]);
 
-  async function saveEpisodePatch(e: React.FormEvent) {
-    e.preventDefault();
+  const checklist = episode?.checklist ?? [];
+  const required = checklist.filter((c) => c.required);
+  const requiredDone = required.filter(isDone).length;
+  const complianceScore =
+    required.length === 0 ? 0 : Math.round((requiredDone / required.length) * 100);
+
+  const gates = useMemo(() => {
+    if (!episode) return [];
+    const items = checklist;
+    const has = (code: string) => items.some((i) => i.code === code && isDone(i));
+    return [
+      {
+        id: 'demographics',
+        label: 'Demographics & contacts complete',
+        ok: has('DEMOGRAPHICS_COMPLETE') || has('SERVICE_ADDRESS'),
+      },
+      {
+        id: 'coverage',
+        label: 'Insurance on file (eligibility noted)',
+        ok: has('PRIMARY_COVERAGE'),
+      },
+      {
+        id: 'dx',
+        label: 'Primary diagnosis (PDGM) present',
+        ok: Boolean(episode.primaryDxIcd10) || has('PRIMARY_DX_PRESENT'),
+      },
+      {
+        id: 'homebound',
+        label: 'Homebound / skilled need screening',
+        ok: has('HISTORY_STARTED') || episode.intakeStatus === 'complete',
+      },
+      {
+        id: 'f2f',
+        label: 'F2F encounter valid or plan in window',
+        ok:
+          episode.f2fStatus === 'completed' ||
+          episode.f2fStatus === 'scheduled' ||
+          has('F2F_STATUS_KNOWN'),
+      },
+      {
+        id: 'consents',
+        label: 'Required consents prepared / signed',
+        ok: has('ADMISSION_CONSENT') || has('NPP_ACK'),
+      },
+      {
+        id: 'orders',
+        label: 'Orders / 485 path known',
+        ok:
+          episode.ordersStatus === 'signed' ||
+          episode.ordersStatus === 'verbal' ||
+          has('ORDERS_STATUS_KNOWN'),
+      },
+    ];
+  }, [episode, checklist]);
+
+  const gatesOk = gates.filter((g) => g.ok).length;
+  const readyForSoc = complianceScore >= 70 && gatesOk >= 5;
+
+  const stageIndex = useMemo(() => {
+    if (!episode) return 0;
+    if (episode.status === 'active') return 4;
+    if (readyForSoc || episode.status === 'scheduled_soc') return 3;
+    if (episode.f2fStatus !== 'unknown' && episode.f2fStatus !== 'missing') return 2;
+    if (episode.intakeStatus !== 'incomplete' || checklist.some(isDone)) return 1;
+    return 0;
+  }, [episode, readyForSoc, checklist]);
+
+  const socOverdue =
+    Boolean(episode?.socDueAt) && new Date(episode!.socDueAt!).getTime() < Date.now();
+
+  async function saveEpisodePatch() {
     const t = getToken();
     if (!t || !episode) return;
     setSaving(true);
-    setMsg(null);
     try {
       const res = await fetch(`${API_URL}/v1/episodes/${id}`, {
         method: 'PATCH',
-        headers: {
-          ...authHeaders(t),
-          'Content-Type': 'application/json',
-        },
+        headers: { ...authHeaders(t), 'Content-Type': 'application/json' },
         body: JSON.stringify({
           f2fStatus: episodePatch.f2fStatus || undefined,
           ordersStatus: episodePatch.ordersStatus || undefined,
-          primaryDxIcd10: episodePatch.primaryDxIcd10 || null,
+          primaryDxIcd10: episodePatch.primaryDxIcd10 || undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setMsg(data.error?.message ?? 'Update failed');
+        setError(data.error?.message ?? 'Update failed');
         return;
       }
-      setEpisode(data);
-      setMsg('Episode updated; checklist recomputed.');
+      setMsg('Episode updated — checklist recomputed.');
+      await load();
     } catch {
-      setMsg('API unreachable');
+      setError('Could not save episode.');
     } finally {
       setSaving(false);
     }
@@ -165,7 +246,6 @@ export default function EpisodeDetailPage() {
     const t = getToken();
     if (!t || !episode) return;
     setSaving(true);
-    setMsg(null);
     try {
       const res = await fetch(`${API_URL}/v1/patients/${episode.patientId}/consents`, {
         method: 'POST',
@@ -176,7 +256,7 @@ export default function EpisodeDetailPage() {
         },
         body: JSON.stringify({
           templateId: consentForm.templateId,
-          episodeId: episode.id,
+          episodeId: id,
           captureMethod: 'onscreen',
           signerType: consentForm.signerType,
           signerName: consentForm.signerName,
@@ -184,10 +264,7 @@ export default function EpisodeDetailPage() {
             consentForm.signerType === 'surrogate'
               ? consentForm.signerRelationship || 'surrogate'
               : undefined,
-          patientPresent: true,
-          localeUsed: 'en',
           signature: {
-            type: 'typed',
             typedName: consentForm.typedName || consentForm.signerName,
           },
         }),
@@ -200,7 +277,7 @@ export default function EpisodeDetailPage() {
       setMsg(`Consent signed: ${data.consentType ?? 'ok'}`);
       await load();
     } catch {
-      setMsg('API unreachable');
+      setError('Could not capture consent.');
     } finally {
       setSaving(false);
     }
@@ -210,41 +287,27 @@ export default function EpisodeDetailPage() {
     const t = getToken();
     if (!t) return;
     setSaving(true);
-    setMsg(null);
     try {
       const res = await fetch(`${API_URL}/v1/oasis/assessments`, {
         method: 'POST',
-        headers: {
-          ...authHeaders(t),
-          'Content-Type': 'application/json',
-        },
+        headers: { ...authHeaders(t), 'Content-Type': 'application/json' },
         body: JSON.stringify({ episodeId: id, timepoint: 'SOC' }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setMsg(data.error?.message ?? 'OASIS create failed (is FEATURE_OASIS=true?)');
+        setError(data.error?.message ?? 'Could not start OASIS');
         return;
       }
-      window.location.href = `/oasis/${data.id}`;
+      if (data.id) window.location.href = `/oasis/${data.id}`;
+      else setMsg('OASIS started.');
     } catch {
-      setMsg('API unreachable');
+      setError('Could not start OASIS.');
     } finally {
       setSaving(false);
     }
   }
 
-  if (error) {
-    return (
-      <div className="ui-page">
-        <Link href="/intake" className="ui-link text-sm">
-          ← Intake
-        </Link>
-        <Alert tone="warn">{error}</Alert>
-      </div>
-    );
-  }
-
-  if (!episode) {
+  if (!episode && !error) {
     return (
       <div className="ui-page">
         <p className="text-sm text-ink-500">Loading episode…</p>
@@ -252,168 +315,289 @@ export default function EpisodeDetailPage() {
     );
   }
 
-  const p = episode.patient;
+  const name = episode?.patient
+    ? `${episode.patient.lastName}, ${episode.patient.firstName}`
+    : 'Episode';
 
   return (
     <div className="ui-page">
-      <div>
-        <Link href="/intake" className="ui-link text-sm">
-          ← Intake worklist
-        </Link>
-      </div>
-
       <PageHeader
-        eyebrow="Episode"
-        title={p ? `${p.lastName}, ${p.firstName}` : 'Episode'}
-        description={`${p?.mrn ?? ''} · ${episode.status} · intake ${episode.intakeStatus} · ${episode.careType}${
-          episode.socDueAt ? ` · SOC due ${new Date(episode.socDueAt).toLocaleString()}` : ''
-        }`}
+        eyebrow="Care · Admission pathway"
+        title={name}
+        description={
+          episode
+            ? `MRN ${episode.patient?.mrn ?? '—'} · ${episode.careType.replace(/_/g, ' ')}${
+                episode.socDueAt
+                  ? ` · SOC due ${new Date(episode.socDueAt).toLocaleString()}`
+                  : ''
+              }`
+            : undefined
+        }
         actions={
-          <Button size="sm" onClick={() => void startOasis()} disabled={saving}>
-            Start SOC OASIS
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/intake">
+              <Button size="sm" variant="secondary">
+                Intake queue
+              </Button>
+            </Link>
+            <Button size="sm" onClick={() => void startOasis()} disabled={saving}>
+              Start SOC OASIS
+            </Button>
+          </div>
         }
       />
 
-      {(episode.flags?.length ?? 0) > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {episode.flags.map((f) => (
-            <Badge key={f} tone="danger">
-              {f}
-            </Badge>
-          ))}
-        </div>
+      {error && <Alert tone="error">{error}</Alert>}
+      {msg && <Alert tone="info">{msg}</Alert>}
+      {socOverdue && (
+        <Alert tone="error">
+          <strong className="font-semibold">SOC overdue.</strong> Start-of-care clock has passed —
+          prioritize this episode.
+        </Alert>
       )}
 
-      {msg && <Alert tone="info">{msg}</Alert>}
+      <div className="flex flex-wrap gap-2">
+        {PATHWAY.map((step, i) => {
+          const active = i === stageIndex;
+          const done = i < stageIndex;
+          return (
+            <div
+              key={step.key}
+              className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${
+                active
+                  ? 'bg-teal-600 text-white'
+                  : done
+                    ? 'bg-teal-50 text-teal-800 ring-1 ring-teal-100'
+                    : 'bg-ink-50 text-ink-400 ring-1 ring-ink-100'
+              }`}
+            >
+              <span className="tabular-nums opacity-80">{i + 1}</span>
+              {step.label}
+            </div>
+          );
+        })}
+      </div>
 
-      <EpisodePhotoGallery episodeId={episode.id} />
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <h2 className="ui-section-title mb-3">Intake checklist</h2>
-          <ul className="divide-y divide-ink-100">
-            {episode.checklist.map((item) => (
-              <li key={item.id} className="flex items-center justify-between py-2.5 text-sm">
-                <span className="text-ink-800">
-                  {item.code}
-                  {item.required && (
-                    <span className="ml-1 text-[10px] uppercase text-ink-400">required</span>
-                  )}
-                </span>
-                <Badge tone={statusTone(item.status)}>{item.status}</Badge>
-              </li>
-            ))}
-          </ul>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card className="!p-4">
+          <div className="text-2xs font-semibold uppercase tracking-wide text-ink-400">
+            Compliance score
+          </div>
+          <div className="mt-1 font-display text-3xl font-semibold text-ink-900">
+            {complianceScore}%
+          </div>
+          <p className="mt-1 text-xs text-ink-500">
+            {requiredDone} of {required.length} required checklist items
+          </p>
         </Card>
-
-        <Card>
-          <h2 className="ui-section-title mb-3">Episode clinical fields</h2>
-          <form onSubmit={saveEpisodePatch} className="space-y-3">
-            <Field label="F2F status">
-              <Select
-                value={episodePatch.f2fStatus}
-                onChange={(e) => setEpisodePatch({ ...episodePatch, f2fStatus: e.target.value })}
-              >
-                <option value="unknown">unknown</option>
-                <option value="scheduled">scheduled</option>
-                <option value="completed">completed</option>
-                <option value="missing">missing</option>
-                <option value="waived_review">waived_review</option>
-              </Select>
-            </Field>
-            <Field label="Orders status">
-              <Select
-                value={episodePatch.ordersStatus}
-                onChange={(e) => setEpisodePatch({ ...episodePatch, ordersStatus: e.target.value })}
-              >
-                <option value="missing">missing</option>
-                <option value="verbal">verbal</option>
-                <option value="signed">signed</option>
-                <option value="expired">expired</option>
-              </Select>
-            </Field>
-            <Field label="Primary DX ICD-10">
-              <Input
-                value={episodePatch.primaryDxIcd10}
-                onChange={(e) =>
-                  setEpisodePatch({ ...episodePatch, primaryDxIcd10: e.target.value })
-                }
-              />
-            </Field>
-            <Button type="submit" variant="secondary" disabled={saving}>
-              Save & recompute checklist
-            </Button>
-          </form>
+        <Card className="!p-4">
+          <div className="text-2xs font-semibold uppercase tracking-wide text-ink-400">
+            Episode status
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <Badge tone={statusTone(episode?.status ?? '')}>
+              {(episode?.status ?? '—').replace(/_/g, ' ')}
+            </Badge>
+            <Badge tone={statusTone(episode?.intakeStatus ?? '')}>
+              intake {(episode?.intakeStatus ?? '').replace(/_/g, ' ')}
+            </Badge>
+          </div>
+        </Card>
+        <Card className={`!p-4 ${readyForSoc ? 'border-teal-200 bg-teal-50/40' : ''}`}>
+          <div className="text-2xs font-semibold uppercase tracking-wide text-ink-400">
+            SOC readiness
+          </div>
+          <div className="mt-1 text-sm font-semibold text-ink-900">
+            {readyForSoc ? 'Ready for SOC' : 'Still screening'}
+          </div>
+          <p className="mt-1 text-xs text-ink-500">
+            {gatesOk}/{gates.length} screening gates clear
+          </p>
         </Card>
       </div>
 
       <Card>
-        <h2 className="ui-section-title mb-1">Capture consent</h2>
-        <p className="mb-4 text-xs text-amber-800">
-          Template body text is NOT LEGAL FINAL. Typed signature is acceptable for demo.
-        </p>
-        <form onSubmit={captureConsent} className="space-y-3">
-          <Field label="Template">
-            <Select
-              required
-              value={consentForm.templateId}
-              onChange={(e) => setConsentForm({ ...consentForm, templateId: e.target.value })}
-            >
-              <option value="">Select…</option>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.consentType} — {t.title}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <div className="grid gap-3 md:grid-cols-2">
-            <Field label="Signer type">
-              <Select
-                value={consentForm.signerType}
-                onChange={(e) =>
-                  setConsentForm({
-                    ...consentForm,
-                    signerType: e.target.value as 'patient' | 'surrogate',
-                  })
-                }
+        <div className="ui-kicker">Screening gates</div>
+        <h2 className="mt-1 text-sm font-semibold text-ink-900">Admission checklist</h2>
+        <ul className="mt-3 space-y-2">
+          {gates.map((g) => (
+            <li key={g.id} className="flex items-start gap-2 text-sm">
+              <span
+                className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                  g.ok ? 'bg-teal-100 text-teal-800' : 'bg-ink-100 text-ink-400'
+                }`}
               >
-                <option value="patient">patient</option>
-                <option value="surrogate">surrogate</option>
-              </Select>
-            </Field>
-            <Field label="Signer name">
-              <Input
-                required
-                value={consentForm.signerName}
-                onChange={(e) => setConsentForm({ ...consentForm, signerName: e.target.value })}
-              />
-            </Field>
-          </div>
-          {consentForm.signerType === 'surrogate' && (
-            <Field label="Relationship">
-              <Input
-                required
-                value={consentForm.signerRelationship}
-                onChange={(e) =>
-                  setConsentForm({ ...consentForm, signerRelationship: e.target.value })
-                }
-              />
-            </Field>
-          )}
-          <Field label="Typed signature">
-            <Input
-              required
-              value={consentForm.typedName}
-              onChange={(e) => setConsentForm({ ...consentForm, typedName: e.target.value })}
-            />
-          </Field>
-          <Button type="submit" disabled={saving}>
-            {saving ? 'Saving…' : 'Sign consent'}
-          </Button>
-        </form>
+                {g.ok ? '✓' : '·'}
+              </span>
+              <span className={g.ok ? 'text-ink-700' : 'text-ink-500'}>{g.label}</span>
+            </li>
+          ))}
+        </ul>
       </Card>
+
+      {episode && (
+        <>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <h2 className="ui-section-title mb-3">Intake checklist</h2>
+              <ul className="space-y-2">
+                {episode.checklist.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-ink-100 px-3 py-2"
+                  >
+                    <span className="text-sm text-ink-800">
+                      {checklistLabel(item.code)}
+                      {item.required && (
+                        <span className="ml-1 text-2xs text-ink-400">required</span>
+                      )}
+                    </span>
+                    <Badge tone={statusTone(item.status)}>{item.status}</Badge>
+                  </li>
+                ))}
+                {episode.checklist.length === 0 && (
+                  <p className="text-sm text-ink-500">No checklist items yet.</p>
+                )}
+              </ul>
+            </Card>
+
+            <Card>
+              <h2 className="ui-section-title mb-3">Clinical / F2F / orders</h2>
+              <div className="space-y-3">
+                <Field label="F2F status">
+                  <Select
+                    value={episodePatch.f2fStatus}
+                    onChange={(e) =>
+                      setEpisodePatch({ ...episodePatch, f2fStatus: e.target.value })
+                    }
+                  >
+                    <option value="unknown">Unknown</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="completed">Completed</option>
+                    <option value="missing">Missing</option>
+                    <option value="waived_review">Waived (review)</option>
+                  </Select>
+                </Field>
+                <Field label="Orders status">
+                  <Select
+                    value={episodePatch.ordersStatus}
+                    onChange={(e) =>
+                      setEpisodePatch({ ...episodePatch, ordersStatus: e.target.value })
+                    }
+                  >
+                    <option value="missing">Missing</option>
+                    <option value="verbal">Verbal</option>
+                    <option value="signed">Signed</option>
+                    <option value="expired">Expired</option>
+                  </Select>
+                </Field>
+                <Field label="Primary ICD-10 (PDGM)">
+                  <Input
+                    className="font-mono"
+                    value={episodePatch.primaryDxIcd10}
+                    onChange={(e) =>
+                      setEpisodePatch({ ...episodePatch, primaryDxIcd10: e.target.value })
+                    }
+                    placeholder="e.g. I50.9"
+                  />
+                </Field>
+                <Button onClick={() => void saveEpisodePatch()} disabled={saving}>
+                  Save & recompute checklist
+                </Button>
+              </div>
+              <div className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-100">
+                <strong>LUPA risk:</strong> delayed SOC and short stays increase LUPA exposure.
+                Keep SOC on time and document ongoing skilled need.
+              </div>
+            </Card>
+          </div>
+
+          <Card>
+            <h2 className="ui-section-title mb-1">Capture consent</h2>
+            <p className="mb-3 text-sm text-ink-500">
+              Consent to treat, HIPAA NPP, ROI — tracked for the compliance gate.
+            </p>
+            <form onSubmit={(e) => void captureConsent(e)} className="grid gap-3 sm:grid-cols-2">
+              <Field label="Template">
+                <Select
+                  value={consentForm.templateId}
+                  onChange={(e) => setConsentForm({ ...consentForm, templateId: e.target.value })}
+                  required
+                >
+                  {templates.map((tpl) => (
+                    <option key={tpl.id} value={tpl.id}>
+                      {tpl.title} (v{tpl.version})
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Signer type">
+                <Select
+                  value={consentForm.signerType}
+                  onChange={(e) =>
+                    setConsentForm({
+                      ...consentForm,
+                      signerType: e.target.value as 'patient' | 'surrogate',
+                    })
+                  }
+                >
+                  <option value="patient">Patient</option>
+                  <option value="surrogate">Surrogate / decision-maker</option>
+                </Select>
+              </Field>
+              <Field label="Signer name">
+                <Input
+                  value={consentForm.signerName}
+                  onChange={(e) => setConsentForm({ ...consentForm, signerName: e.target.value })}
+                  required
+                />
+              </Field>
+              <Field label="Typed signature">
+                <Input
+                  value={consentForm.typedName}
+                  onChange={(e) => setConsentForm({ ...consentForm, typedName: e.target.value })}
+                  required
+                />
+              </Field>
+              {consentForm.signerType === 'surrogate' && (
+                <Field label="Relationship">
+                  <Input
+                    value={consentForm.signerRelationship}
+                    onChange={(e) =>
+                      setConsentForm({ ...consentForm, signerRelationship: e.target.value })
+                    }
+                  />
+                </Field>
+              )}
+              <div className="flex items-end">
+                <Button type="submit" disabled={saving}>
+                  Sign consent
+                </Button>
+              </div>
+            </form>
+          </Card>
+
+          <div className="flex flex-wrap gap-2">
+            <Link href="/orders">
+              <Button variant="secondary" size="sm">
+                Physician signatures
+              </Button>
+            </Link>
+            <Link href="/revenue">
+              <Button variant="secondary" size="sm">
+                Revenue integrity
+              </Button>
+            </Link>
+            <Link href={`/patients/${episode.patientId}`}>
+              <Button variant="ghost" size="sm">
+                Patient chart
+              </Button>
+            </Link>
+          </div>
+
+          <EpisodePhotoGallery episodeId={id} patientId={episode.patientId} />
+        </>
+      )}
     </div>
   );
 }
