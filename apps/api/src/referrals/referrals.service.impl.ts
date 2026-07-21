@@ -65,6 +65,8 @@ export class ReferralsService {
         patientLastName: patients.lastName,
         mrn: patients.mrn,
         reasonForReferral: referrals.reasonForReferral,
+        documentFileName: referrals.documentFileName,
+        documentContentType: referrals.documentContentType,
       })
       .from(referrals)
       .innerJoin(patients, eq(referrals.patientId, patients.id))
@@ -375,7 +377,6 @@ export class ReferralsService {
     const extracted = extractReferralFromText(input.text, { fileName: input.fileName });
     if (input.sourceHint && !extracted.sourceType) extracted.sourceType = input.sourceHint;
 
-    // Sanitize for create schema limits
     extracted.primaryDiagnosisIcd10 = sanitizeIcd10(extracted.primaryDiagnosisIcd10);
     extracted.primaryDiagnosisText = clip(extracted.primaryDiagnosisText, 500);
     extracted.reasonForReferral = clip(extracted.reasonForReferral, 2000);
@@ -390,6 +391,15 @@ export class ReferralsService {
     let referral: unknown = null;
     let draftError: string | undefined;
 
+    const docMeta = {
+      documentFileName: input.fileName ?? null,
+      documentContentType:
+        input.contentType ??
+        (input.fileName?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'text/plain'),
+      documentText: input.text.slice(0, 100_000),
+      extractedJson: JSON.stringify(extracted),
+    };
+
     if (canDraft) {
       try {
         referral = await this.create(
@@ -399,19 +409,21 @@ export class ReferralsService {
               firstName: extracted.patient!.firstName!,
               lastName: extracted.patient!.lastName!,
               dob: extracted.patient!.dob!,
-              preferredLanguage: 'en',
+              preferredLanguage: extracted.patient?.preferredLanguage ?? 'en',
             },
             sourceType: extracted.sourceType ?? 'other',
             sourceName: extracted.sourceName ?? clip(input.fileName, 200) ?? 'Document upload',
-            sourceContact: extracted.sourceContact,
+            sourceContact: extracted.sourceContact ?? extracted.sourcePhone,
             acuity: extracted.acuity ?? 'routine',
             reasonForReferral:
               extracted.reasonForReferral ??
               'Referral received via document — coordinator review required',
             primaryDiagnosisText: extracted.primaryDiagnosisText,
             primaryDiagnosisIcd10: extracted.primaryDiagnosisIcd10,
-            externalRef: extracted.externalRef,
-            requestedServices: ['skilled_nursing'],
+            externalRef: extracted.externalRef ?? extracted.patient?.mrn,
+            requestedServices: extracted.requestedServices?.length
+              ? extracted.requestedServices
+              : ['skilled_nursing'],
           },
           meta,
         );
@@ -420,8 +432,16 @@ export class ReferralsService {
           try {
             await this.update(user, rid, { status: 'in_review' }, meta);
           } catch {
-            /* status update optional */
+            /* optional */
           }
+          await this.db
+            .update(referrals)
+            .set({
+              ...docMeta,
+              updatedAt: new Date(),
+              updatedBy: user.id,
+            })
+            .where(eq(referrals.id, rid));
           referral = await this.getById(user.orgId, rid);
         }
         await this.audit.writeFromUser(user, {
@@ -430,8 +450,10 @@ export class ReferralsService {
           resourceId: (referral as { id?: string } | null)?.id,
           after: {
             fileName: input.fileName,
+            contentType: docMeta.documentContentType,
             confidence: extracted.confidence,
             factors: extracted.factors,
+            attached: true,
           },
           requestId: meta?.requestId,
           ip: meta?.ip,
@@ -443,7 +465,6 @@ export class ReferralsService {
             : typeof err === 'object' && err && 'message' in err
               ? String((err as { message: unknown }).message)
               : 'Draft create failed';
-        // Nest HTTP exceptions often nest message
         if (err && typeof err === 'object' && 'response' in err) {
           const r = (err as { response?: { error?: { message?: string }; message?: string } })
             .response;
@@ -460,11 +481,25 @@ export class ReferralsService {
       extracted,
       draftCreated: Boolean(referral),
       referral,
+      attachment: referral
+        ? {
+            fileName: docMeta.documentFileName,
+            contentType: docMeta.documentContentType,
+            textChars: docMeta.documentText.length,
+            attached: true,
+          }
+        : {
+            fileName: docMeta.documentFileName,
+            contentType: docMeta.documentContentType,
+            textChars: docMeta.documentText.length,
+            attached: false,
+            note: 'Document will attach when the referral draft is saved with name + DOB.',
+          },
       needsReview: true,
       draftError,
       missingFields: missing,
       message: referral
-        ? 'Draft referral created for review. Accept to start intake.'
+        ? 'Draft referral created with document attached. Accept to start intake.'
         : missing.length
           ? `Extraction complete — still need: ${missing.join(', ')}. Fill them below and Save referral.`
           : draftError
@@ -507,6 +542,7 @@ export class ReferralsService {
       {
         text: combined,
         fileName: input.messageId ? 'email:' + input.messageId : 'email:' + input.from,
+        contentType: 'message/rfc822',
         createDraft: true,
       },
       meta,
@@ -528,7 +564,7 @@ export class ReferralsService {
       detected: true,
       ...result,
       message: result.draftCreated
-        ? 'Referral email processed — draft waiting for coordinator review.'
+        ? 'Referral email processed — document attached, draft waiting for review.'
         : result.message,
     };
   }
