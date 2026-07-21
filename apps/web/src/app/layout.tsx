@@ -17,8 +17,9 @@ const display = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: 'HHOS — Home Health & Hospice OS',
-  description: 'HIPAA-by-design operating system for home health and hospice agencies',
+  title: 'Lumina — Home-based care OS',
+  description:
+    'AI-native operating system for home health and hospice. Clarity for every visit. Intelligence for every decision.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

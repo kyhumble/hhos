@@ -15,6 +15,7 @@ function navActive(pathname: string, href: string) {
 function pageTitle(pathname: string): string {
   if (pathname === '/') return 'Dashboard';
   const map: Record<string, string> = {
+    '/ai-assist': 'AI Assist',
     '/intake': 'Intake',
     '/oasis': 'OASIS',
     '/tasks': 'Clinical tasks',
@@ -33,12 +34,17 @@ function pageTitle(pathname: string): string {
   if (pathname.startsWith('/patients/')) return 'Patient';
   if (pathname.startsWith('/episodes/')) return 'Episode';
   if (pathname.startsWith('/oasis/')) return 'Assessment';
-  return 'HHOS';
+  return 'Lumina';
 }
 
 function pageCrumb(pathname: string): string {
   if (pathname === '/') return 'Overview';
-  if (pathname.startsWith('/intake') || pathname.startsWith('/oasis') || pathname.startsWith('/tasks')) {
+  if (
+    pathname.startsWith('/ai-assist') ||
+    pathname.startsWith('/intake') ||
+    pathname.startsWith('/oasis') ||
+    pathname.startsWith('/tasks')
+  ) {
     return 'Clinical';
   }
   if (pathname.startsWith('/routing') || pathname.startsWith('/field')) return 'Operations';
@@ -78,21 +84,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const sidebar = (
-    <div className="flex h-full flex-col bg-side text-white">
-      <div className="flex h-[var(--header-h)] items-center gap-2.5 border-b border-side-border px-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-[11px] font-bold tracking-tight">
-          HH
+    <div className="flex h-full flex-col bg-[#0a1628] text-white">
+      {/* Brand mark */}
+      <div className="flex h-[var(--header-h)] items-center gap-3 border-b border-white/5 px-4">
+        <div className="relative flex h-9 w-9 items-center justify-center">
+          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-teal-400 to-teal-600 opacity-90" />
+          <div className="relative text-[13px] font-bold tracking-tight text-white">L</div>
         </div>
         <div className="min-w-0 leading-tight">
-          <div className="truncate text-[13px] font-semibold tracking-tight">HHOS</div>
-          <div className="truncate text-[10px] text-side-muted">Home Health OS</div>
+          <div className="truncate text-[14px] font-semibold tracking-tight text-white">Lumina</div>
+          <div className="truncate text-[10px] font-medium text-teal-400/80">
+            Home-based care OS
+          </div>
         </div>
       </div>
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-2.5 py-4">
         {groups.map((group) => (
           <div key={group}>
-            <div className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-side-muted/70">
+            <div className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
               {group}
             </div>
             <ul className="space-y-0.5">
@@ -106,13 +116,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         href={item.href}
                         className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition ${
                           active
-                            ? 'bg-brand-600 text-white shadow-sm'
-                            : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                            ? 'bg-teal-600/90 text-white shadow-sm shadow-teal-900/40'
+                            : 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-100'
                         }`}
                       >
                         <NavIcon
                           name={iconForHref(item.href)}
-                          className={`h-4 w-4 shrink-0 ${active ? 'opacity-100' : 'opacity-70'}`}
+                          className={`h-4 w-4 shrink-0 ${active ? 'opacity-100' : 'opacity-60'}`}
                         />
                         <span className="truncate">{item.label}</span>
                       </Link>
@@ -124,11 +134,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ))}
       </nav>
 
-      <div className="border-t border-side-border p-3">
+      <div className="border-t border-white/5 p-3">
         {user ? (
-          <div className="rounded-lg bg-side-elev p-2.5 ring-1 ring-side-border">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-600 text-[10px] font-bold">
+          <div className="rounded-xl bg-white/[0.03] p-2.5 ring-1 ring-white/5">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-teal-700 text-[10px] font-bold text-white">
                 {user.fullName
                   .split(' ')
                   .map((p) => p[0])
@@ -137,14 +147,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   .toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-semibold">{user.fullName}</div>
-                <div className="truncate text-[10px] text-side-muted">{user.roles[0]?.replace(/_/g, ' ')}</div>
+                <div className="truncate text-xs font-semibold text-slate-100">{user.fullName}</div>
+                <div className="truncate text-[10px] text-slate-500">
+                  {user.roles[0]?.replace(/_/g, ' ')}
+                </div>
               </div>
             </div>
             <button
               type="button"
               onClick={logout}
-              className="mt-2 w-full rounded-md bg-white/5 px-2 py-1.5 text-[11px] font-semibold text-slate-300 hover:bg-white/10 hover:text-white"
+              className="mt-2.5 w-full rounded-lg bg-white/[0.04] px-2 py-1.5 text-[11px] font-semibold text-slate-400 transition hover:bg-white/[0.08] hover:text-slate-200"
             >
               Sign out
             </button>
@@ -152,12 +164,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ) : (
           <Link
             href="/login"
-            className="flex w-full items-center justify-center rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-500"
+            className="flex w-full items-center justify-center rounded-lg bg-teal-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-teal-500"
           >
             Sign in
           </Link>
         )}
-        <p className="mt-2 text-center text-[10px] text-side-muted/60">Synthetic · non-PHI</p>
+        <p className="mt-2.5 text-center text-[10px] text-slate-600">Synthetic · non-PHI</p>
       </div>
     </div>
   );
@@ -182,8 +194,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 border-b border-ink-200 bg-white/90 backdrop-blur-md">
+      <div className="flex min-w-0 flex-1 flex-col bg-canvas">
+        <header className="sticky top-0 z-30 border-b border-ink-200/80 bg-white/85 backdrop-blur-md">
           <div className="flex h-[var(--header-h)] items-center justify-between gap-3 px-4 sm:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <button
@@ -197,21 +209,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <div className="flex items-center gap-1.5 text-2xs text-ink-400">
                   <span>{pageCrumb(pathname)}</span>
                   <span className="text-ink-300">/</span>
-                  <span className="font-medium text-ink-600">{pageTitle(pathname)}</span>
+                  <span className="font-medium text-ink-700">{pageTitle(pathname)}</span>
                 </div>
               </div>
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <Link href="/patients/new" className="ui-btn-primary ui-btn-sm hidden sm:inline-flex">
+              <Link href="/ai-assist" className="ui-btn-primary ui-btn-sm hidden sm:inline-flex">
+                AI Assist
+              </Link>
+              <Link
+                href="/patients/new"
+                className="ui-btn-secondary ui-btn-sm hidden md:inline-flex"
+              >
                 New patient
               </Link>
-              <span className="hidden items-center gap-1.5 rounded-md border border-ink-200 bg-ink-50 px-2 py-1 text-2xs font-medium text-ink-600 sm:inline-flex">
-                <span className="ui-dot bg-emerald-500" />
+              <span className="hidden items-center gap-1.5 rounded-full border border-teal-100 bg-teal-50 px-2.5 py-1 text-2xs font-medium text-teal-800 sm:inline-flex">
+                <span className="ui-dot bg-teal-500" />
                 Demo
               </span>
               {user ? (
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-100 text-2xs font-bold text-ink-700 ring-1 ring-ink-200">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-teal-100 to-teal-200 text-2xs font-bold text-teal-800 ring-1 ring-teal-200/80">
                   {user.fullName
                     .split(' ')
                     .map((p) => p[0])

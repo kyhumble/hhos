@@ -1,4 +1,4 @@
-/* Shared UI primitives — keep prop types loose to avoid dual @types/react conflicts. */
+/* Shared UI primitives — Lumina calm clinical system. */
 
 export function PageHeader({
   title,
@@ -57,7 +57,7 @@ export function StatCard({
           ? 'bg-red-500'
           : tone === 'neutral'
             ? 'bg-ink-400'
-            : 'bg-brand-600';
+            : 'bg-teal-600';
   return (
     <div className="ui-stat relative overflow-hidden">
       <div className={`absolute inset-y-0 left-0 w-0.5 ${bar}`} />
@@ -182,7 +182,7 @@ export function EmptyState({
 }) {
   return (
     <div className="px-4 py-14 text-center">
-      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-ink-100 text-ink-500">
+      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50 text-teal-600 ring-1 ring-teal-100">
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path
             strokeLinecap="round"
