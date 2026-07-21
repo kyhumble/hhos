@@ -5,6 +5,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Existing primary brand (blue) kept for compatibility
         brand: {
           50: '#eff6ff',
           100: '#dbeafe',
@@ -17,6 +18,20 @@ const config: Config = {
           800: '#1e40af',
           900: '#1e3a8a',
           950: '#172554',
+        },
+        // Lumina calm teal scale — use for AI surfaces, accents, elevated calm UI
+        teal: {
+          50: '#f0fdfa',
+          100: '#ccfbf1',
+          200: '#99f6e4',
+          300: '#5eead4',
+          400: '#2dd4bf',
+          500: '#14b8a6',
+          600: '#0d9488',
+          700: '#0f766e',
+          800: '#115e59',
+          900: '#134e4a',
+          950: '#042f2e',
         },
         ink: {
           50: '#f8fafc',
@@ -34,13 +49,14 @@ const config: Config = {
         canvas: {
           DEFAULT: '#f1f5f9',
           soft: '#f8fafc',
+          calm: '#f0fdfa',
         },
         side: {
           DEFAULT: '#0b1220',
           elev: '#111827',
           border: '#1f2937',
           muted: '#94a3b8',
-          active: '#1d4ed8',
+          active: '#0d9488',
         },
       },
       fontFamily: {
@@ -74,6 +90,7 @@ const config: Config = {
         card: '0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04)',
         panel: '0 0 0 1px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)',
         lift: '0 8px 24px -8px rgba(15, 23, 42, 0.12)',
+        calm: '0 1px 3px rgba(13, 148, 136, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04)',
       },
       borderRadius: {
         lg: '0.5rem',
