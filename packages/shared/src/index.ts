@@ -3,6 +3,7 @@ export * from './permissions';
 export * from './common';
 export * from './patient';
 export * from './referral';
+export * from './referral-ingest';
 export * from './episode';
 export * from './consent';
 export * from './wound-photo';

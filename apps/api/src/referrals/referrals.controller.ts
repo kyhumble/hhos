@@ -14,6 +14,8 @@ import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
 import {
   CreateReferralSchema,
   DeclineReferralSchema,
+  InboundReferralEmailSchema,
+  IngestReferralDocumentSchema,
   Permission,
   UpdateReferralSchema,
 } from '@hhos/shared';
@@ -27,20 +29,21 @@ import { requestMeta } from '../common/request-context';
 import { ReferralsService } from './referrals.service';
 
 @ApiTags('referrals')
-@ApiBearerAuth()
-@UseGuards(AuthGuard, PermissionsGuard)
 @Controller('v1/referrals')
 export class ReferralsController {
   constructor(private readonly referrals: ReferralsService) {}
 
-  /** Requires referral:write — not patient:read (field_rn must not list org-wide referrals). */
   @Get()
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard, PermissionsGuard)
   @RequirePermissions(Permission.REFERRAL_WRITE)
   list(@CurrentUser() user: AuthUser) {
     return this.referrals.list(user.orgId);
   }
 
   @Get(':id')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard, PermissionsGuard)
   @RequirePermissions(Permission.REFERRAL_WRITE)
   async get(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     const row = await this.referrals.getById(user.orgId, id);
@@ -53,6 +56,8 @@ export class ReferralsController {
   }
 
   @Post()
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard, PermissionsGuard)
   @RequirePermissions(Permission.REFERRAL_CREATE)
   @ApiHeader({ name: 'Idempotency-Key', required: false })
   create(
@@ -67,7 +72,41 @@ export class ReferralsController {
     });
   }
 
+  /**
+   * Upload/paste referral document or email body → extract fields → optional draft referral.
+   * Never auto-accepts; coordinator still Accepts to start intake.
+   */
+  @Post('ingest')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.REFERRAL_CREATE)
+  ingest(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(IngestReferralDocumentSchema)) body: unknown,
+    @Req() req: { headers?: Record<string, string | string[] | undefined>; ip?: string },
+  ) {
+    return this.referrals.ingestDocument(user, body as never, requestMeta(req));
+  }
+
+  /**
+   * Email integration webhook (forwarding address / inbound parse provider).
+   * Detects referral-like messages, extracts, creates draft for human review.
+   */
+  @Post('email-inbound')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard, PermissionsGuard)
+  @RequirePermissions(Permission.REFERRAL_CREATE)
+  emailInbound(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(InboundReferralEmailSchema)) body: unknown,
+    @Req() req: { headers?: Record<string, string | string[] | undefined>; ip?: string },
+  ) {
+    return this.referrals.ingestEmail(user, body as never, requestMeta(req));
+  }
+
   @Patch(':id')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard, PermissionsGuard)
   @RequirePermissions(Permission.REFERRAL_WRITE)
   update(
     @CurrentUser() user: AuthUser,
@@ -79,6 +118,8 @@ export class ReferralsController {
   }
 
   @Post(':id/accept')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard, PermissionsGuard)
   @RequirePermissions(Permission.REFERRAL_WRITE)
   accept(
     @CurrentUser() user: AuthUser,
@@ -89,6 +130,8 @@ export class ReferralsController {
   }
 
   @Post(':id/decline')
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard, PermissionsGuard)
   @RequirePermissions(Permission.REFERRAL_WRITE)
   decline(
     @CurrentUser() user: AuthUser,
