@@ -103,6 +103,11 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input className={`ui-input ${className}`} {...rest} />;
 }
 
+export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const { className = '', ...rest } = props;
+  return <textarea className={`ui-input min-h-[6rem] ${className}`} {...rest} />;
+}
+
 export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   const { className = '', children, ...rest } = props;
   return (
@@ -124,13 +129,15 @@ export function Field({
   label,
   children,
   hint,
+  className = '',
 }: {
   label: string;
   children: React.ReactNode;
   hint?: string;
+  className?: string;
 }) {
   return (
-    <div>
+    <div className={className}>
       <Label>{label}</Label>
       {children}
       {hint ? <p className="mt-1 text-xs text-ink-400">{hint}</p> : null}
@@ -219,7 +226,7 @@ export function statusTone(
   if (['blocked', 'rejected', 'void', 'failed', 'expired', 'non_admit'].includes(s)) {
     return 'danger';
   }
-  if (['pending', 'draft', 'sent', 'viewed', 'pre_admit', 'incomplete', 'missing'].includes(s)) {
+  if (['pending', 'draft', 'sent', 'viewed', 'pre_admit', 'incomplete', 'missing', 'in_review', 'new'].includes(s)) {
     return 'warn';
   }
   if (['scheduled', 'in_progress', 'open'].includes(s)) return 'brand';
