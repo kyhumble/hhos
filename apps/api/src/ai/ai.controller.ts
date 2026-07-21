@@ -22,7 +22,12 @@ export class AiController {
    * Does not write clinical facts — only returns advisory suggestions and audits generation.
    */
   @Post('visits/:visitId/suggestions')
-  @RequirePermissions(Permission.OASIS_READ)
+  @RequirePermissions(
+    Permission.OASIS_READ,
+    Permission.OASIS_WRITE,
+    Permission.ROUTING_SUGGEST,
+    Permission.VISIT_TASK_READ,
+  )
   async visitSuggestions(
     @Param('visitId') visitId: string,
     @CurrentUser() user: AuthUser,
@@ -46,9 +51,15 @@ export class AiController {
   /**
    * Record clinician decision on a suggestion (accept / edit / reject).
    * Always audited. Does not auto-apply clinical content — callers must use normal clinical write paths.
+   * Permission set matches AI Assist audience (coordinators, leads, field clinicians).
    */
   @Post('suggestions/:id/decision')
-  @RequirePermissions(Permission.OASIS_WRITE)
+  @RequirePermissions(
+    Permission.OASIS_READ,
+    Permission.OASIS_WRITE,
+    Permission.ROUTING_SUGGEST,
+    Permission.VISIT_TASK_WRITE,
+  )
   async decision(
     @Param('id') suggestionId: string,
     @Body()
