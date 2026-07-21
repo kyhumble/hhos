@@ -76,10 +76,8 @@ export function extractTextFromPdfBytes(bytes: Uint8Array): string {
   }
 
   // Also pull clear ASCII runs (helps some generators)
-  const asciiRe = /[
-    	
-
-    \x20-\x7E]{4,}/g;
+  // Tab, LF, CR, and printable ASCII — keep as a single-line regex (Next SWC rejects multiline class)
+  const asciiRe = /[\t\n\r\x20-\x7E]{4,}/g;
   while ((m = asciiRe.exec(raw))) {
     const t = m[0].trim();
     if (
