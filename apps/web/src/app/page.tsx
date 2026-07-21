@@ -8,6 +8,13 @@ import { NavIcon } from '@/lib/nav-icons';
 
 const QUEUES = [
   {
+    title: 'AI Assist',
+    desc: 'HITL notes, OASIS & risk suggestions',
+    href: '/ai-assist',
+    icon: 'ai',
+    meta: 'Lumina',
+  },
+  {
     title: 'Intake worklist',
     desc: 'SOC risk, checklists, consents',
     href: '/intake',
@@ -77,17 +84,17 @@ export default function HomePage() {
   return (
     <div className="ui-page">
       <PageHeader
-        eyebrow="Command center"
+        eyebrow="Lumina · Command center"
         title={first ? `Good to see you, ${first}` : 'Home Health Operating System'}
-        description="Work queues for intake, signatures, OASIS, hospice, and billing readiness. Synthetic data only."
+        description="Clarity for every visit. Intelligence for every decision. Work queues for intake, AI assist, signatures, OASIS, and billing."
         actions={
           user ? (
             <div className="flex gap-2">
-              <Link href="/patients/new">
-                <Button>New patient</Button>
+              <Link href="/ai-assist">
+                <Button>AI Assist</Button>
               </Link>
-              <Link href="/intake">
-                <Button variant="secondary">Intake</Button>
+              <Link href="/patients/new">
+                <Button variant="secondary">New patient</Button>
               </Link>
             </div>
           ) : (
@@ -106,7 +113,7 @@ export default function HomePage() {
       </Alert>
 
       {!user && (
-        <Card className="border-brand-200 bg-brand-50/40">
+        <Card className="border-teal-100 bg-teal-50/40">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="text-sm font-semibold text-ink-900">Sign in to load worklists</div>
@@ -114,6 +121,10 @@ export default function HomePage() {
                 Use{' '}
                 <code className="rounded bg-white px-1 font-mono text-xs ring-1 ring-ink-200">
                   coord@demo.local
+                </code>{' '}
+                or{' '}
+                <code className="rounded bg-white px-1 font-mono text-xs ring-1 ring-ink-200">
+                  lead@demo.local
                 </code>{' '}
                 — no password.
               </p>
@@ -142,25 +153,39 @@ export default function HomePage() {
           <h2 className="text-sm font-semibold text-ink-900">Work queues</h2>
           <span className="text-2xs text-ink-400">Open a queue to act</span>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {QUEUES.map((q) => (
             <Link
               key={q.href}
               href={q.href}
-              className="group flex items-start gap-3 rounded-xl border border-ink-200 bg-white p-3.5 shadow-soft transition hover:border-brand-300 hover:shadow-card"
+              className={`group flex items-start gap-3 rounded-xl border bg-white p-3.5 shadow-soft transition hover:shadow-card ${
+                q.href === '/ai-assist'
+                  ? 'border-teal-200 hover:border-teal-300'
+                  : 'border-ink-200 hover:border-brand-300'
+              }`}
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ink-50 text-ink-600 ring-1 ring-ink-100 group-hover:bg-brand-50 group-hover:text-brand-700 group-hover:ring-brand-100">
+              <span
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 ${
+                  q.href === '/ai-assist'
+                    ? 'bg-teal-50 text-teal-700 ring-teal-100 group-hover:bg-teal-100'
+                    : 'bg-ink-50 text-ink-600 ring-ink-100 group-hover:bg-brand-50 group-hover:text-brand-700 group-hover:ring-brand-100'
+                }`}
+              >
                 <NavIcon name={q.icon} className="h-4 w-4" />
               </span>
               <span className="min-w-0">
                 <span className="flex items-center gap-2">
-                  <span className="truncate text-sm font-semibold text-ink-900 group-hover:text-brand-800">
+                  <span
+                    className={`truncate text-sm font-semibold text-ink-900 ${
+                      q.href === '/ai-assist' ? 'group-hover:text-teal-800' : 'group-hover:text-brand-800'
+                    }`}
+                  >
                     {q.title}
                   </span>
                 </span>
                 <span className="mt-0.5 block text-xs text-ink-500">{q.desc}</span>
                 <span className="mt-1.5 inline-block">
-                  <Badge tone="neutral">{q.meta}</Badge>
+                  <Badge tone={q.meta === 'Lumina' ? 'brand' : 'neutral'}>{q.meta}</Badge>
                 </span>
               </span>
             </Link>

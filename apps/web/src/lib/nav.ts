@@ -14,6 +14,12 @@ export type NavItem = {
 export const NAV: NavItem[] = [
   { href: '/', label: 'Dashboard', group: 'Overview' },
   {
+    href: '/ai-assist',
+    label: 'AI Assist',
+    group: 'Clinical',
+    anyOf: [Permission.OASIS_READ, Permission.VISIT_TASK_READ, Permission.EPISODE_READ],
+  },
+  {
     href: '/intake',
     label: 'Intake',
     group: 'Clinical',

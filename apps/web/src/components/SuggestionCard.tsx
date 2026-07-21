@@ -37,21 +37,54 @@ export function SuggestionCard({
 
   const conf = suggestion.provenance.confidence;
   const pct = Math.round(conf * 100);
+  const done = suggestion.status !== 'pending';
+
+  if (done) {
+    return (
+      <div
+        className={`rounded-xl border border-ink-100 bg-ink-50/50 px-4 py-3 shadow-soft ${className}`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-semibold text-ink-700">{suggestion.title}</span>
+              <Badge
+                tone={
+                  suggestion.status === 'accepted' || suggestion.status === 'edited'
+                    ? 'success'
+                    : 'neutral'
+                }
+              >
+                {suggestion.status}
+              </Badge>
+            </div>
+            <p className="mt-1 line-clamp-2 text-sm text-ink-500">
+              {suggestion.humanEdit || suggestion.content}
+            </p>
+          </div>
+          <span className="text-2xs text-ink-400">{pct}% conf</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
-      className={`ui-card border-l-4 border-l-brand-500 p-4 shadow-soft transition hover:shadow-card ${className}`}
+      className={`rounded-xl border border-teal-100 bg-white p-4 shadow-calm ring-1 ring-teal-50/80 transition hover:shadow-card ${className}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-2xs font-semibold uppercase tracking-wide text-ink-400">
+            <span className="text-2xs font-semibold uppercase tracking-wide text-teal-700/80">
               AI Suggestion
             </span>
             <Badge tone={confidenceTone(conf)}>{pct}% confidence</Badge>
             {suggestion.targetPath ? (
-              <span className="ui-chip">{suggestion.targetPath}</span>
+              <span className="ui-chip font-mono">{suggestion.targetPath}</span>
             ) : null}
+            <span className="text-2xs capitalize text-ink-400">
+              {suggestion.type.replace(/_/g, ' ')}
+            </span>
           </div>
           <h3 className="mt-1.5 text-sm font-semibold text-ink-900">{suggestion.title}</h3>
           {!editing ? (
@@ -73,33 +106,29 @@ export function SuggestionCard({
         <div className="mt-3">
           <button
             type="button"
-            className="text-2xs font-medium text-brand-700 hover:underline"
+            className="text-2xs font-medium text-teal-700 hover:text-teal-800 hover:underline"
             onClick={() => setExpanded((v) => !v)}
           >
             {expanded ? 'Hide rationale' : 'Why this suggestion?'}
           </button>
           {expanded ? (
-            <ul className="mt-1.5 space-y-1 rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-600">
+            <ul className="mt-1.5 space-y-1 rounded-lg bg-teal-50/60 px-3 py-2 text-xs text-ink-600 ring-1 ring-teal-100/80">
               {suggestion.provenance.factors?.map((f, i) => (
                 <li key={`f-${i}`}>• {f}</li>
               ))}
               {suggestion.provenance.evidence?.map((e, i) => (
                 <li key={`e-${i}`}>• {e}</li>
               ))}
+              <li className="pt-0.5 text-ink-400">model {suggestion.provenance.modelVersion}</li>
             </ul>
           ) : null}
         </div>
       ) : null}
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3">
         {!editing ? (
           <>
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={() => onAccept?.(suggestion)}
-              disabled={suggestion.status !== 'pending'}
-            >
+            <Button size="sm" variant="primary" onClick={() => onAccept?.(suggestion)}>
               Accept
             </Button>
             <Button
@@ -109,16 +138,10 @@ export function SuggestionCard({
                 setEditValue(suggestion.content);
                 setEditing(true);
               }}
-              disabled={suggestion.status !== 'pending'}
             >
               Edit
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onReject?.(suggestion)}
-              disabled={suggestion.status !== 'pending'}
-            >
+            <Button size="sm" variant="ghost" onClick={() => onReject?.(suggestion)}>
               Reject
             </Button>
           </>
@@ -131,6 +154,7 @@ export function SuggestionCard({
                 onEdit?.(suggestion, editValue);
                 setEditing(false);
               }}
+              disabled={!editValue.trim()}
             >
               Save edit
             </Button>
@@ -139,17 +163,6 @@ export function SuggestionCard({
             </Button>
           </>
         )}
-        {suggestion.status !== 'pending' ? (
-          <Badge
-            tone={
-              suggestion.status === 'accepted' || suggestion.status === 'edited'
-                ? 'success'
-                : 'neutral'
-            }
-          >
-            {suggestion.status}
-          </Badge>
-        ) : null}
       </div>
     </div>
   );
