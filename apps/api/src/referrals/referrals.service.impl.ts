@@ -29,6 +29,19 @@ import type { AuthUser } from '../common/auth.types';
 import { isUniqueViolation } from '../common/db-errors';
 import { insertPatientWithMrnRetry } from '../common/insert-patient';
 
+function clip(s: string | undefined | null, max: number): string | undefined {
+  if (s == null) return undefined;
+  const t = String(s).trim();
+  if (!t) return undefined;
+  return t.length > max ? t.slice(0, max) : t;
+}
+
+function sanitizeIcd10(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  const cleaned = raw.replace(/[^A-Za-z0-9.]/g, '').toUpperCase().slice(0, 10);
+  return cleaned || undefined;
+}
+
 @Injectable()
 export class ReferralsService {
   constructor(
@@ -288,7 +301,7 @@ export class ReferralsService {
         try {
           await this.checklist.seedForEpisode(user.orgId, episode.id, {}, tx as never);
         } catch {
-          /* seed best-effort */
+          /* best-effort */
         }
         await this.audit.writeFromUser(
           user,
@@ -361,60 +374,102 @@ export class ReferralsService {
   ) {
     const extracted = extractReferralFromText(input.text, { fileName: input.fileName });
     if (input.sourceHint && !extracted.sourceType) extracted.sourceType = input.sourceHint;
+
+    // Sanitize for create schema limits
+    extracted.primaryDiagnosisIcd10 = sanitizeIcd10(extracted.primaryDiagnosisIcd10);
+    extracted.primaryDiagnosisText = clip(extracted.primaryDiagnosisText, 500);
+    extracted.reasonForReferral = clip(extracted.reasonForReferral, 2000);
+    extracted.sourceName = clip(extracted.sourceName, 200);
+    extracted.sourceContact = clip(extracted.sourceContact, 200);
+    extracted.externalRef = clip(extracted.externalRef, 100);
+
     const canDraft =
       input.createDraft !== false &&
       Boolean(extracted.patient?.firstName && extracted.patient?.lastName && extracted.patient?.dob);
+
     let referral: unknown = null;
+    let draftError: string | undefined;
+
     if (canDraft) {
-      referral = await this.create(
-        user,
-        {
-          patient: {
-            firstName: extracted.patient!.firstName!,
-            lastName: extracted.patient!.lastName!,
-            dob: extracted.patient!.dob!,
-            preferredLanguage: 'en',
+      try {
+        referral = await this.create(
+          user,
+          {
+            patient: {
+              firstName: extracted.patient!.firstName!,
+              lastName: extracted.patient!.lastName!,
+              dob: extracted.patient!.dob!,
+              preferredLanguage: 'en',
+            },
+            sourceType: extracted.sourceType ?? 'other',
+            sourceName: extracted.sourceName ?? clip(input.fileName, 200) ?? 'Document upload',
+            sourceContact: extracted.sourceContact,
+            acuity: extracted.acuity ?? 'routine',
+            reasonForReferral:
+              extracted.reasonForReferral ??
+              'Referral received via document — coordinator review required',
+            primaryDiagnosisText: extracted.primaryDiagnosisText,
+            primaryDiagnosisIcd10: extracted.primaryDiagnosisIcd10,
+            externalRef: extracted.externalRef,
+            requestedServices: ['skilled_nursing'],
           },
-          sourceType: extracted.sourceType ?? 'other',
-          sourceName: extracted.sourceName ?? input.fileName ?? 'Document upload',
-          sourceContact: extracted.sourceContact,
-          acuity: extracted.acuity ?? 'routine',
-          reasonForReferral:
-            extracted.reasonForReferral ??
-            'Referral received via document — coordinator review required',
-          primaryDiagnosisText: extracted.primaryDiagnosisText,
-          primaryDiagnosisIcd10: extracted.primaryDiagnosisIcd10,
-          externalRef: extracted.externalRef,
-          requestedServices: ['skilled_nursing'],
-        },
-        meta,
-      );
-      if (referral && typeof referral === 'object' && referral !== null && 'id' in referral) {
-        const rid = (referral as { id: string }).id;
-        await this.update(user, rid, { status: 'in_review' }, meta);
-        referral = await this.getById(user.orgId, rid);
+          meta,
+        );
+        if (referral && typeof referral === 'object' && referral !== null && 'id' in referral) {
+          const rid = (referral as { id: string }).id;
+          try {
+            await this.update(user, rid, { status: 'in_review' }, meta);
+          } catch {
+            /* status update optional */
+          }
+          referral = await this.getById(user.orgId, rid);
+        }
+        await this.audit.writeFromUser(user, {
+          action: 'referral.ingest_document',
+          resourceType: 'referral',
+          resourceId: (referral as { id?: string } | null)?.id,
+          after: {
+            fileName: input.fileName,
+            confidence: extracted.confidence,
+            factors: extracted.factors,
+          },
+          requestId: meta?.requestId,
+          ip: meta?.ip,
+        });
+      } catch (err) {
+        draftError =
+          err instanceof Error
+            ? err.message
+            : typeof err === 'object' && err && 'message' in err
+              ? String((err as { message: unknown }).message)
+              : 'Draft create failed';
+        // Nest HTTP exceptions often nest message
+        if (err && typeof err === 'object' && 'response' in err) {
+          const r = (err as { response?: { error?: { message?: string }; message?: string } })
+            .response;
+          draftError = r?.error?.message ?? r?.message ?? draftError;
+        }
       }
-      await this.audit.writeFromUser(user, {
-        action: 'referral.ingest_document',
-        resourceType: 'referral',
-        resourceId: (referral as { id?: string } | null)?.id,
-        after: {
-          fileName: input.fileName,
-          confidence: extracted.confidence,
-          factors: extracted.factors,
-        },
-        requestId: meta?.requestId,
-        ip: meta?.ip,
-      });
     }
+
+    const missing: string[] = [];
+    if (!extracted.patient?.firstName || !extracted.patient?.lastName) missing.push('patient name');
+    if (!extracted.patient?.dob) missing.push('date of birth');
+
     return {
       extracted,
       draftCreated: Boolean(referral),
       referral,
       needsReview: true,
-      message: canDraft
+      draftError,
+      missingFields: missing,
+      message: referral
         ? 'Draft referral created for review. Accept to start intake.'
-        : 'Extraction complete — confirm patient name and DOB, then save.',
+        : missing.length
+          ? `Extraction complete — still need: ${missing.join(', ')}. Fill them below and Save referral.`
+          : draftError
+            ? `Extracted fields, but could not auto-create draft: ${draftError}. Use the form to save.`
+            : 'Extraction complete — review and save.',
     };
   }
 
@@ -444,7 +499,9 @@ export class ReferralsService {
         message: 'Message did not look like a home health referral — no draft created.',
       };
     }
-    const combined = ['Subject: ' + (input.subject ?? ''), 'From: ' + input.from, '', input.text].join('\n');
+    const combined = ['Subject: ' + (input.subject ?? ''), 'From: ' + input.from, '', input.text].join(
+      '\n',
+    );
     const result = await this.ingestDocument(
       user,
       {
@@ -472,7 +529,7 @@ export class ReferralsService {
       ...result,
       message: result.draftCreated
         ? 'Referral email processed — draft waiting for coordinator review.'
-        : 'Referral-like email extracted; complete patient name and DOB to save.',
+        : result.message,
     };
   }
 }
