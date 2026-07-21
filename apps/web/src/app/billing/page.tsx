@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   Alert,
   Badge,
@@ -38,6 +39,32 @@ type Claim = {
   episodeId: string;
 };
 
+function gapLabel(code: string, message: string) {
+  const map: Record<string, string> = {
+    ORDERS_UNSIGNED: 'Physician orders not signed yet',
+    POC_UNSIGNED: 'Plan of care (485) not signed yet',
+    HOSPICE_CERT_UNSIGNED: 'Hospice certification not signed yet',
+    MISSING_PRIMARY_DX: 'Primary diagnosis missing',
+    COVERAGE_MISSING: 'No insurance coverage on file',
+    COVERAGE_UNVERIFIED: 'Coverage not verified',
+    F2F_INCOMPLETE: 'Face-to-face documentation incomplete',
+    OASIS_NOT_LOCKED: 'Assessment not locked',
+    INTAKE_INCOMPLETE: 'Intake checklist incomplete',
+    EPISODE_NOT_ACTIVE: 'Episode not active for billing',
+    HOSPICE_ELECTION_INACTIVE: 'Hospice election not active',
+    HOSPICE_TERMINAL_DX_MISSING: 'Terminal diagnosis missing',
+  };
+  return map[code] ?? message;
+}
+
+function isSignatureGap(code: string) {
+  return (
+    code === 'ORDERS_UNSIGNED' ||
+    code === 'POC_UNSIGNED' ||
+    code === 'HOSPICE_CERT_UNSIGNED'
+  );
+}
+
 export default function BillingPage() {
   const [work, setWork] = useState<WorkItem[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
@@ -51,7 +78,7 @@ export default function BillingPage() {
 
   async function load() {
     if (!token) {
-      setError('Login as admin or billing@demo.local (billing:read).');
+      setError('Sign in to view billing readiness.');
       return;
     }
     const headers = { Authorization: `Bearer ${token}` };
@@ -62,13 +89,12 @@ export default function BillingPage() {
     const wData = await wRes.json();
     const cData = await cRes.json();
     if (!wRes.ok) {
-      setError(wData.error?.message ?? 'Worklist failed (FEATURE_BILLING?)');
+      setError(wData.error?.message ?? 'Could not load billing worklist.');
       return;
     }
     setWork(wData.data ?? []);
     if (cRes.ok) setClaims(cData.data ?? []);
     setError(null);
-    if (wData.disclaimer) setMsg(wData.disclaimer);
   }
 
   useEffect(() => {
@@ -83,21 +109,18 @@ export default function BillingPage() {
     );
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error?.message ?? 'Readiness failed');
+      setError(data.error?.message ?? 'Readiness check failed');
       return;
     }
+    const lines = (data.gaps ?? []).map(
+      (g: { code: string; severity: string; message: string }) =>
+        `${g.severity === 'hard' ? 'Must fix' : 'Note'}: ${gapLabel(g.code, g.message)}`,
+    );
     setDetail(
-      JSON.stringify(
-        {
-          ready: data.ready,
-          hard: data.hardGapCount,
-          soft: data.softGapCount,
-          gaps: data.gaps,
-          snapshot: data.snapshot,
-        },
-        null,
-        2,
-      ),
+      [
+        data.ready ? 'Ready to bill' : `${data.hardGapCount} item(s) block billing`,
+        ...lines,
+      ].join('\n'),
     );
   }
 
@@ -113,10 +136,10 @@ export default function BillingPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error?.message ?? 'Create claim failed');
+      setError(data.error?.message ?? 'Could not create claim package');
       return;
     }
-    setMsg(`Claim package created · status ${data.status}`);
+    setMsg(`Claim package created · ${data.status}`);
     await load();
   }
 
@@ -128,8 +151,17 @@ export default function BillingPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error?.message ?? 'Export blocked — resolve hard gaps first');
-      setDetail(JSON.stringify(data.error ?? data, null, 2));
+      setError('Export blocked — resolve signature and coverage issues first.');
+      if (data.error?.gaps) {
+        setDetail(
+          data.error.gaps
+            .map(
+              (g: { code: string; message: string }) =>
+                gapLabel(g.code, g.message),
+            )
+            .join('\n'),
+        );
+      }
       return;
     }
     setMsg(`Exported as ${data.export?.format}`);
@@ -137,21 +169,46 @@ export default function BillingPage() {
     await load();
   }
 
+  const signatureBlocked = work.filter((w) =>
+    (w.topGaps ?? []).some((g) => isSignatureGap(g.code)),
+  ).length;
+
   return (
     <div className="ui-page">
       <PageHeader
-        eyebrow="Revenue"
+        eyebrow="Records"
         title="Billing readiness"
-        description="See what blocks clean claims, then export JSON for your clearinghouse. No live EDI submit."
+        description="See what’s blocking clean claims. Unsigned orders and plans of care are usually the first place to look."
+        actions={
+          <Link href="/orders">
+            <Button size="sm">Physician signatures</Button>
+          </Link>
+        }
       />
 
-      {error && <Alert tone="warn">{error}</Alert>}
+      {error && <Alert tone="error">{error}</Alert>}
       {msg && <Alert tone="info">{msg}</Alert>}
 
+      {signatureBlocked > 0 && (
+        <Alert tone="warn">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              <strong className="font-semibold">{signatureBlocked} episode(s)</strong> are blocked
+              by unsigned orders, plans of care, or certifications.
+            </span>
+            <Link href="/orders">
+              <Button size="sm" variant="secondary">
+                Open signature queue
+              </Button>
+            </Link>
+          </div>
+        </Alert>
+      )}
+
       <Card>
-        <h2 className="ui-section-title mb-4">Check episode</h2>
+        <h2 className="ui-section-title mb-4">Check an episode</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Episode ID">
+          <Field label="Episode">
             <Input
               className="font-mono text-xs"
               value={episodeId}
@@ -160,15 +217,15 @@ export default function BillingPage() {
           </Field>
           <Field label="Claim type">
             <Select value={claimType} onChange={(e) => setClaimType(e.target.value)}>
-              <option value="hh_rap">HH RAP</option>
-              <option value="hh_final">HH Final</option>
+              <option value="hh_rap">Home health RAP</option>
+              <option value="hh_final">Home health final</option>
               <option value="hospice_noe">Hospice NOE</option>
               <option value="hospice_claim">Hospice claim</option>
             </Select>
           </Field>
           <div className="flex items-end gap-2 sm:col-span-2">
             <Button type="button" variant="secondary" onClick={() => void checkReadiness()}>
-              Run readiness
+              Check readiness
             </Button>
             <Button type="button" onClick={() => void createClaim()}>
               Create claim package
@@ -179,41 +236,63 @@ export default function BillingPage() {
 
       <div className="ui-table-wrap">
         <div className="border-b border-ink-100 px-4 py-3">
-          <h2 className="ui-section-title">Episode worklist</h2>
+          <h2 className="ui-section-title">Episodes</h2>
         </div>
         <table className="ui-table">
           <thead>
             <tr>
               <th>Patient</th>
               <th>Care</th>
-              <th>Ready</th>
-              <th>Top gaps</th>
+              <th>Status</th>
+              <th>What’s blocking</th>
             </tr>
           </thead>
           <tbody>
-            {work.map((w) => (
-              <tr key={w.episodeId}>
-                <td>
-                  <div className="font-medium">{w.patientName}</div>
-                  <div className="font-mono text-[11px] text-ink-400">
-                    {w.episodeId.slice(0, 8)}…
-                  </div>
-                </td>
-                <td>
-                  <Badge tone="neutral">{w.careType}</Badge>
-                </td>
-                <td>
-                  {w.ready ? (
-                    <Badge tone="success">Ready</Badge>
-                  ) : (
-                    <Badge tone="warn">{w.hardGapCount} hard</Badge>
-                  )}
-                </td>
-                <td className="text-xs text-ink-500">
-                  {(w.topGaps ?? []).map((g) => g.code).join(', ') || '—'}
-                </td>
-              </tr>
-            ))}
+            {work.map((w) => {
+              const hasSigGap = (w.topGaps ?? []).some((g) => isSignatureGap(g.code));
+              return (
+                <tr key={w.episodeId}>
+                  <td>
+                    <div className="font-medium">{w.patientName}</div>
+                  </td>
+                  <td>
+                    <span className="text-sm capitalize text-ink-600">
+                      {w.careType.replace(/_/g, ' ')}
+                    </span>
+                  </td>
+                  <td>
+                    {w.ready ? (
+                      <Badge tone="success">Ready</Badge>
+                    ) : (
+                      <Badge tone={hasSigGap ? 'danger' : 'warn'}>
+                        {w.hardGapCount} to fix
+                      </Badge>
+                    )}
+                  </td>
+                  <td className="text-sm text-ink-600">
+                    {(w.topGaps ?? []).length === 0 ? (
+                      '—'
+                    ) : (
+                      <ul className="space-y-0.5">
+                        {(w.topGaps ?? []).map((g) => (
+                          <li key={g.code}>
+                            {gapLabel(g.code, g.message)}
+                            {isSignatureGap(g.code) && (
+                              <>
+                                {' '}
+                                <Link href="/orders" className="ui-link text-xs">
+                                  Chase signature
+                                </Link>
+                              </>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
             {work.length === 0 && (
               <tr>
                 <td colSpan={4}>
@@ -241,18 +320,18 @@ export default function BillingPage() {
           <tbody>
             {claims.map((c) => (
               <tr key={c.id}>
-                <td className="font-medium">{c.claimType}</td>
-                <td>{c.patientName ?? c.episodeId.slice(0, 8)}</td>
+                <td className="font-medium">{c.claimType.replace(/_/g, ' ')}</td>
+                <td>{c.patientName ?? '—'}</td>
                 <td>
                   <Badge tone={statusTone(c.status)}>{c.status}</Badge>
                   {c.hardGapCount > 0 && (
-                    <span className="ml-2 text-xs text-amber-700">{c.hardGapCount} hard</span>
+                    <span className="ml-2 text-xs text-amber-700">{c.hardGapCount} blocking</span>
                   )}
                 </td>
                 <td className="text-right">
                   {(c.status === 'ready' || c.status === 'exported') && (
                     <Button size="sm" variant="secondary" onClick={() => void exportClaim(c.id)}>
-                      Export JSON
+                      Export
                     </Button>
                   )}
                 </td>
@@ -261,7 +340,10 @@ export default function BillingPage() {
             {claims.length === 0 && (
               <tr>
                 <td colSpan={4}>
-                  <EmptyState title="No claim packages yet" body="Create one from the form above." />
+                  <EmptyState
+                    title="No claim packages yet"
+                    body="Check readiness first, then create a package when gaps are clear."
+                  />
                 </td>
               </tr>
             )}
@@ -270,9 +352,10 @@ export default function BillingPage() {
       </div>
 
       {detail && (
-        <pre className="overflow-auto rounded-2xl border border-ink-800 bg-ink-950 p-4 text-xs leading-relaxed text-brand-100 shadow-card max-h-96">
-          {detail}
-        </pre>
+        <Card>
+          <div className="ui-kicker">Readiness detail</div>
+          <pre className="mt-2 whitespace-pre-wrap text-sm text-ink-700">{detail}</pre>
+        </Card>
       )}
     </div>
   );
