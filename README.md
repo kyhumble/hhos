@@ -1,23 +1,41 @@
-# HHOS — Home Health Operating System
+# AetherCare Intelligence Platform (HHOS)
 
-Custom, HIPAA-by-design operating system for mobile wound care agencies.
+**AI-native, compliance-first operating system for home health agencies.**
 
-**Status:** Phase 0–2 implementation in progress  
-**MVP target:** Phase 0–2 (compliant intake + secure field wound photos)  
-**Not for production PHI** until AWS BAA, security review, and compliance sign-off.
+This repository (technical name **HHOS**) is the living implementation of the **AetherCare Intelligence Platform** — a unified system purpose-built to attack the five highest-impact operational and financial pain points in home health:
+
+1. **Documentation Burden (“OASIS Tax”)** — Guided, pre-populated, voice-capable OASIS-E2 capture that targets 40–60 min SOC assessments with high first-pass accuracy.
+2. **PDGM Coding & Case-Mix Accuracy (CY 2026 Ready)** — Real-time advisory diagnosis/comorbidity extraction, functional impairment sensitivity, and HIPPS/HHRG preview against recalibrated 2026 weights.
+3. **LUPA & Visit Utilization Leakage** — Day-0 predictive risk scoring, utilization dashboards, and ranked intervention tasking before thresholds are crossed.
+4. **Referral Intake Friction & Conversion Loss** — Multi-channel unified inbox, AI triage/prioritization, structured digital intake, eligibility/F2F/consent automation, and conversion funnel analytics.
+5. **HHVBP Performance Attribution** — Near-real-time clinician/team attribution, predictive TPS trajectory, and actionable coaching prompts.
+
+All design choices remain tightly aligned with Medicare Conditions of Participation, OASIS-E2 (effective April 1, 2026), CY 2026 PDGM recalibration (CY 2024 claims data), expanded HHVBP measures, HIPAA Security/Privacy Rules, and real field realities (offline mobile, secure wound photography, geotag/timestamp/nurse-ID metadata).
+
+**Status:** Phase 0–2 production-hardened (compliant intake + secure field wound photos). Phase 3 (OASIS-E2 + advisory PDGM/LUPA) in active development. Progressive enhancement roadmap continues through full Case-Mix Optimizer, LUPA Sentinel, and HHVBP Compass.
+
+**Not for production PHI** until AWS BAA (or equivalent), formal security review, compliance officer sign-off, and legal validation of all templates/rules.
+
+## Core Design Principles (AetherCare UX)
+
+- Compliance as invisible guardrail, not friction.
+- AI as transparent co-pilot: every suggestion shows confidence, source evidence, “why,” and one-tap Accept/Edit/Dismiss with full immutable lineage. Never auto-locks clinical eligibility, medical necessity, or billing-critical decisions.
+- Mobile-first / offline-first for field clinicians; progressive enhancement for office.
+- Role-adaptive density and progressive disclosure.
+- Observable, overridable, attributable automation.
+- Consistent risk visualization (LUPA, Coding/Denial, Compliance Gap, Revenue Opportunity).
 
 ## Architecture (short)
 
-- **Mobile (Expo prebuild / dev client):** field nurses — visits, consents, camera-only wound photos offline  
-- **Web (Next.js):** intake, coordinators, admin, compliance, episode photo gallery  
-- **API (NestJS):** domain services, RBAC, audit, validation, photo envelope crypto  
-- **Postgres + Drizzle:** relational PHI with org scoping  
-- **S3/MinIO + KMS (prod):** private encrypted photo/document objects  
+- **Mobile (Expo prebuild / dev client):** field nurses — visits, consents, camera-only wound photos offline-first with encrypted outbox.
+- **Web (Next.js):** intake, coordinators, coding workbench, LUPA sentinel, admin, compliance, episode photo gallery, OASIS guided assessment.
+- **API (NestJS):** domain services, RBAC, comprehensive audit, validation, photo envelope crypto (AES-GCM), multi-tenant RLS.
+- **Postgres + Drizzle:** relational PHI with org scoping and row-level security.
+- **S3/MinIO + KMS (prod):** private encrypted photo/document objects.
 
 See `AGENTS.md` for coding and compliance conventions.  
-See `docs/architecture/overview.md` and **`docs/architecture/phase-2-secure-wound-photos.md`** for Phase 2 design.  
-See `docs/architecture/phase-2-kpis.md` for ops metrics (ids only).  
-See `docs/compliance/threat-model-v0.md` for threat model including the photo pipeline.
+See `docs/architecture/` for phase plans (including Phase 3 OASIS-E2/PDGM).  
+See `docs/compliance/` for threat model, checklists, and BAA inventory.
 
 ## Prerequisites
 
@@ -29,7 +47,7 @@ See `docs/compliance/threat-model-v0.md` for threat model including the photo pi
 ## Quick start
 
 ```bash
-cd ~/hhos
+cd ~/hhos   # or your clone path
 cp .env.example .env
 pnpm install
 docker compose up -d
@@ -69,35 +87,17 @@ Photos are gated and storage-sensitive. Local dogfood checklist:
 | Geotag | Fail-closed: leave `PHOTO_GEOTAG_ENABLED=false` unless deliberately testing **and** org setting enabled |
 | Mobile build | `pnpm --filter @hhos/mobile exec expo prebuild` then `expo run:ios` / `run:android` (or EAS dev client). See `apps/mobile/README.md`. |
 | Consent | Capture requires active `WOUND_PHOTO_CLINICAL` (online fetch + cache; no gallery clinical path) |
-| Device | App registers via `POST /v1/devices/register` before sync; revoke is API-side (not a hardening-only concern) |
-
-Minimal photo-local flow:
-
-```bash
-# 1) deps
-docker compose up -d          # postgres, redis, minio + private bucket/CORS init
-cp .env.example .env          # ensure FEATURE_WOUND_PHOTOS, PHOTO_KEK, S3_* set
-pnpm install && pnpm db:migrate && pnpm db:seed
-
-# 2) API + web
-pnpm --filter @hhos/api dev
-pnpm --filter @hhos/web dev
-
-# 3) mobile (dev client — not Expo Go)
-pnpm --filter @hhos/mobile exec expo prebuild
-# set EXPO_PUBLIC_API_URL for device/emulator as needed
-pnpm --filter @hhos/mobile exec expo run:ios   # or run:android
-```
+| Device | App registers via `POST /v1/devices/register` before sync; revoke is API-side |
 
 ## Workspace layout
 
 ```
 apps/api       NestJS API
-apps/web       Next.js console
+apps/web       Next.js console (AetherCare UX)
 apps/mobile    Expo field app (prebuild for photos)
 packages/db    Drizzle schema, migrations, seeds
-packages/shared  Zod schemas, permissions, enums
-docs/          Architecture & compliance
+packages/shared  Zod schemas, permissions, enums, PDGM/LUPA advisory helpers, OASIS-E2 subset
+docs/          Architecture, compliance, domain
 infra/         Terraform stubs (AWS)
 ```
 
@@ -108,34 +108,20 @@ infra/         Terraform stubs (AWS)
 | `pnpm install` | Install all workspaces |
 | `pnpm build` | Build packages/apps |
 | `pnpm typecheck` | TypeScript check |
-| `pnpm test` | Workspace tests (API unit tests via turbo) |
-| `pnpm --filter @hhos/api test` | API unit tests (crypto vectors, dual-S3 construction, photo control plane — **no live MinIO required**) |
+| `pnpm test` | Workspace tests |
+| `pnpm --filter @hhos/api test` | API unit tests (crypto vectors, dual-S3, photo control plane) |
 | `pnpm db:generate` | Generate Drizzle migrations |
 | `pnpm db:migrate` | Apply migrations |
 | `pnpm db:seed` | Seed synthetic demo data |
 
-### CI & MinIO
+## Compliance notice (critical)
 
-GitHub Actions (`.github/workflows/ci.yml`) runs install, shared/db build, typecheck, and a basic secret scan. **Unit tests do not start MinIO**; storage specs assert dual-client construction and never rewrite signed hosts.
-
-For a **compose-backed local smoke** of object storage:
-
-```bash
-docker compose up -d
-# confirm MinIO healthy; bucket hhos-documents private + CORS applied by minio-init
-pnpm --filter @hhos/api test          # unit suite
-# Manual smoke: initiate → presigned PUT to S3_PUBLIC_ENDPOINT → complete (hash via internal client)
-# See docs/architecture/phase-2-kpis.md smoke checklist
-```
-
-A live MinIO integration job in CI is optional follow-on; document any new `test:integration` script here when added.
-
-## Compliance notice
-
+- **All clinical, coding, eligibility, medical necessity, and billing-critical logic is assistive / advisory only.** Human override and full audit trail are mandatory.
 - Consent template wording is **placeholder — NOT LEGAL FINAL**.  
-- No production ePHI without executed BAAs and org policy approval.  
-- Recommend Compliance Officer / counsel review before pilot with real patients.
-- Clinical photos: camera-only; consent purpose `WOUND_PHOTO_CLINICAL`; post-revoke view follows K16 (break-glass for compliance only).
+- No production ePHI without executed BAAs, org policy approval, and formal review by the agency’s compliance officer, legal counsel, and MAC.
+- Clinical photos: camera-only; consent purpose `WOUND_PHOTO_CLINICAL`; post-revoke view follows break-glass rules for compliance only.
+- CY 2026 PDGM weights, LUPA thresholds, OASIS-E2 item definitions, and HHVBP measures must be re-validated against official CMS final rules and guidance before any production lock or payment impact.
+- This platform is designed so that every automation remains observable, overridable, and fully auditable.
 
 ## License
 
