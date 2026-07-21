@@ -16,6 +16,7 @@ import {
   statusTone,
 } from '@/components/ui';
 import { API_URL, authHeaders, getToken } from '@/lib/api';
+import { looksLikeBinaryText, readReferralFile } from '@/lib/pdf-text';
 
 type ReferralRow = {
   id: string;
@@ -57,6 +58,17 @@ Referring physician: Dr. Smith
 Phone: 405-555-0142
 Urgent discharge — please evaluate for home health SOC within 48 hours`;
 
+function apiErrorMessage(data: unknown, fallback: string): string {
+  if (!data || typeof data !== 'object') return fallback;
+  const d = data as Record<string, unknown>;
+  const err = d.error as Record<string, unknown> | undefined;
+  if (err?.message && typeof err.message === 'string') return err.message;
+  if (typeof d.message === 'string') return d.message;
+  // ZodValidationPipe often returns message array
+  if (Array.isArray(d.message)) return d.message.map(String).join('; ');
+  return fallback;
+}
+
 export default function ReferralsPage() {
   const [rows, setRows] = useState<ReferralRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -94,13 +106,13 @@ export default function ReferralsPage() {
       const res = await fetch(`${API_URL}/v1/referrals`, { headers: authHeaders(t) });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error?.message ?? 'Failed to load referrals');
+        setError(apiErrorMessage(data, 'Failed to load referrals'));
         return;
       }
       setRows(data.data ?? []);
       setError(null);
     } catch {
-      setError('Could not reach the server.');
+      setError('Could not reach the server. Is the API running on port 3001?');
     }
   }, []);
 
@@ -111,7 +123,16 @@ export default function ReferralsPage() {
   async function ingestDocument(createDraft = true) {
     const t = getToken();
     if (!t || !docText.trim()) return;
+
+    if (looksLikeBinaryText(docText)) {
+      setError(
+        'The text box still has binary PDF data. Clear it, re-choose the PDF (we extract text automatically), or paste plain text.',
+      );
+      return;
+    }
+
     setBusy(true);
+    setError(null);
     setMsg(null);
     try {
       const res = await fetch(`${API_URL}/v1/referrals/ingest`, {
@@ -123,15 +144,16 @@ export default function ReferralsPage() {
           createDraft,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error?.message ?? 'Ingest failed');
+        setError(apiErrorMessage(data, `Ingest failed (${res.status})`));
         return;
       }
       setExtracted(data.extracted ?? null);
       setMsg(data.message ?? 'Extracted');
       if (data.draftCreated) {
         setDocText('');
+        setFileName(undefined);
         await load();
       } else if (data.extracted?.patient) {
         setManual((m) => ({
@@ -147,9 +169,13 @@ export default function ReferralsPage() {
           acuity: data.extracted.acuity ?? m.acuity,
         }));
         setShowManual(true);
+        setMsg(
+          (data.message ?? 'Extraction complete') +
+            ' — complete any missing fields (especially DOB) and Save referral.',
+        );
       }
     } catch {
-      setError('Could not ingest document.');
+      setError('Could not reach the API to ingest. Check that the API is running.');
     } finally {
       setBusy(false);
     }
@@ -157,15 +183,33 @@ export default function ReferralsPage() {
 
   async function onFile(file: File | null) {
     if (!file) return;
-    setFileName(file.name);
-    const text = await file.text();
-    setDocText(text);
+    setError(null);
+    setMsg(null);
+    setBusy(true);
+    try {
+      const result = await readReferralFile(file);
+      setFileName(result.fileName);
+      setDocText(result.text);
+      if (result.warning) {
+        setMsg(result.warning);
+        setShowManual(true);
+      } else {
+        setMsg(`Loaded ${result.fileName} — review text, then Extract & create draft.`);
+      }
+    } catch (e) {
+      setDocText('');
+      setFileName(undefined);
+      setError(e instanceof Error ? e.message : 'Could not read file');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function runEmailInbound() {
     const t = getToken();
     if (!t) return;
     setBusy(true);
+    setError(null);
     setMsg(null);
     try {
       const res = await fetch(`${API_URL}/v1/referrals/email-inbound`, {
@@ -173,16 +217,16 @@ export default function ReferralsPage() {
         headers: { ...authHeaders(t), 'Content-Type': 'application/json' },
         body: JSON.stringify(emailSim),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error?.message ?? 'Email ingest failed');
+        setError(apiErrorMessage(data, 'Email ingest failed'));
         return;
       }
       setExtracted(data.extracted ?? null);
       setMsg(data.message ?? 'Processed');
       if (data.draftCreated) await load();
     } catch {
-      setError('Could not process email.');
+      setError('Could not process email — is the API running?');
     } finally {
       setBusy(false);
     }
@@ -193,6 +237,7 @@ export default function ReferralsPage() {
     const t = getToken();
     if (!t) return;
     setBusy(true);
+    setError(null);
     try {
       const res = await fetch(`${API_URL}/v1/referrals`, {
         method: 'POST',
@@ -213,9 +258,9 @@ export default function ReferralsPage() {
           requestedServices: ['skilled_nursing'],
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error?.message ?? 'Create failed');
+        setError(apiErrorMessage(data, 'Create failed'));
         return;
       }
       setMsg('Referral created');
@@ -232,14 +277,15 @@ export default function ReferralsPage() {
     const t = getToken();
     if (!t) return;
     setBusy(true);
+    setError(null);
     try {
       const res = await fetch(`${API_URL}/v1/referrals/${id}/accept`, {
         method: 'POST',
         headers: authHeaders(t),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error?.message ?? 'Accept failed');
+        setError(apiErrorMessage(data, 'Accept failed'));
         return;
       }
       setMsg('Accepted — intake started (SOC clock running)');
@@ -266,8 +312,8 @@ export default function ReferralsPage() {
         body: JSON.stringify({ reason }),
       });
       if (!res.ok) {
-        const data = await res.json();
-        setError(data.error?.message ?? 'Decline failed');
+        const data = await res.json().catch(() => ({}));
+        setError(apiErrorMessage(data, 'Decline failed'));
         return;
       }
       setMsg('Referral declined');
@@ -284,7 +330,7 @@ export default function ReferralsPage() {
       <PageHeader
         eyebrow="Care"
         title="Referrals"
-        description="Upload or email a referral, extract the details, review, then accept to start intake."
+        description="Upload a PDF or email a referral, extract the details, review, then accept to start intake."
         actions={
           <div className="flex gap-2">
             <Button size="sm" variant="secondary" onClick={() => setShowManual((v) => !v)}>
@@ -303,15 +349,15 @@ export default function ReferralsPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <div className="ui-kicker">Document upload</div>
-          <h2 className="mt-1 text-sm font-semibold text-ink-900">Paste or upload referral text</h2>
+          <h2 className="mt-1 text-sm font-semibold text-ink-900">Paste or upload referral</h2>
           <p className="mt-1 text-sm text-ink-500">
-            Discharge summary, fax text, or .txt / .eml body. We extract patient, diagnosis, and source
-            for your review — nothing auto-admits.
+            PDF (text-based), .txt, or .eml. Scanned image PDFs may need you to fill DOB manually.
+            Nothing auto-admits.
           </p>
           <div className="mt-3 space-y-3">
             <input
               type="file"
-              accept=".txt,.csv,.eml,.md,text/*"
+              accept=".pdf,.txt,.csv,.eml,.md,text/*,application/pdf"
               className="block w-full text-sm text-ink-600"
               onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
             />
@@ -343,6 +389,8 @@ export default function ReferralsPage() {
                 onClick={() => {
                   setDocText(SAMPLE_DOC);
                   setFileName('sample-referral.txt');
+                  setError(null);
+                  setMsg('Sample loaded — click Extract & create draft');
                 }}
               >
                 Load sample
@@ -384,8 +432,8 @@ export default function ReferralsPage() {
             </Button>
           </div>
           <div className="mt-4 rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-600">
-            Production: point Mailgun/SendGrid inbound parse or Microsoft Graph subscription at this
-            endpoint with a service account token. See{' '}
+            Production: point Mailgun/SendGrid inbound parse or Microsoft Graph at this endpoint.
+            See{' '}
             <Link href="/integrations" className="ui-link">
               Integrations
             </Link>
@@ -441,7 +489,10 @@ export default function ReferralsPage() {
 
       {showManual && (
         <Card>
-          <h2 className="text-sm font-semibold text-ink-900">Manual referral</h2>
+          <h2 className="text-sm font-semibold text-ink-900">Complete & save referral</h2>
+          <p className="mt-1 text-sm text-ink-500">
+            Used when auto-draft needs a DOB or when you prefer manual entry.
+          </p>
           <form onSubmit={(e) => void createManual(e)} className="mt-3 grid gap-3 sm:grid-cols-2">
             <Field label="First name">
               <Input
@@ -543,7 +594,7 @@ export default function ReferralsPage() {
                   <td colSpan={6}>
                     <EmptyState
                       title="No referrals yet"
-                      body="Upload a document, simulate an email, or use manual entry."
+                      body="Upload a PDF, simulate an email, or use manual entry."
                     />
                   </td>
                 </tr>
