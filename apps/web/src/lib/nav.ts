@@ -12,68 +12,68 @@ export type NavItem = {
 };
 
 export const NAV: NavItem[] = [
-  { href: '/', label: 'Dashboard', group: 'Overview' },
+  { href: '/', label: 'Home', group: 'Overview' },
   {
     href: '/ai-assist',
     label: 'AI Assist',
-    group: 'Clinical',
+    group: 'Care',
     anyOf: [Permission.OASIS_READ, Permission.VISIT_TASK_READ, Permission.EPISODE_READ],
   },
   {
     href: '/intake',
     label: 'Intake',
-    group: 'Clinical',
+    group: 'Care',
     anyOf: [Permission.EPISODE_READ, Permission.PATIENT_READ, Permission.REFERRAL_CREATE],
   },
   {
     href: '/oasis',
-    label: 'OASIS',
-    group: 'Clinical',
+    label: 'Assessments',
+    group: 'Care',
     anyOf: [Permission.OASIS_READ, Permission.EPISODE_READ],
   },
   {
     href: '/tasks',
-    label: 'Clinical tasks',
-    group: 'Clinical',
+    label: 'Care tasks',
+    group: 'Care',
     anyOf: [Permission.CLINICAL_TASK_READ],
   },
   {
     href: '/routing',
-    label: 'Routing',
-    group: 'Operations',
+    label: 'Schedule',
+    group: 'Field',
     anyOf: [Permission.ROUTING_READ, Permission.ROUTING_SUGGEST, Permission.ROUTING_DECIDE],
   },
   {
     href: '/field-tasks',
-    label: 'Field tasks',
-    group: 'Operations',
+    label: 'Visits',
+    group: 'Field',
     anyOf: [Permission.VISIT_TASK_READ, Permission.VISIT_TASK_WRITE, Permission.EPISODE_READ],
   },
   {
     href: '/orders',
-    label: 'Orders / 485',
-    group: 'Compliance',
+    label: 'Orders',
+    group: 'Records',
     anyOf: [Permission.ORDER_READ, Permission.ORDER_WRITE, Permission.ORDER_SEND],
   },
   {
     href: '/hospice',
     label: 'Hospice',
-    group: 'Compliance',
+    group: 'Records',
     anyOf: [Permission.HOSPICE_READ, Permission.HOSPICE_WRITE],
   },
   {
     href: '/billing',
     label: 'Billing',
-    group: 'Revenue',
+    group: 'Records',
     anyOf: [Permission.BILLING_READ, Permission.BILLING_WRITE],
   },
   {
     href: '/admin',
-    label: 'Org admin',
-    group: 'Platform',
+    label: 'Team & settings',
+    group: 'Agency',
     anyOf: [Permission.USER_ADMIN, Permission.ORG_SETTINGS],
   },
-  { href: '/onboard', label: 'New agency', group: 'Platform', public: true },
+  { href: '/onboard', label: 'New agency', group: 'Agency', public: true },
 ];
 
 function hasAny(user: SessionUser | null, anyOf?: PermissionCode[]): boolean {
@@ -82,7 +82,7 @@ function hasAny(user: SessionUser | null, anyOf?: PermissionCode[]): boolean {
   return anyOf.some((p) => user.permissions.includes(p));
 }
 
-/** Filter nav by session permissions. Logged-out users see public items + dashboard. */
+/** Filter nav by session permissions. Logged-out users see public items + home. */
 export function navForUser(user: SessionUser | null): NavItem[] {
   return NAV.filter((item) => {
     if (item.public) return true;

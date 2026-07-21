@@ -2,75 +2,80 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Alert, Badge, Button, Card, PageHeader, StatCard } from '@/components/ui';
+import { Alert, Button, Card, PageHeader } from '@/components/ui';
 import { getStoredUser, type SessionUser } from '@/lib/auth';
 import { NavIcon } from '@/lib/nav-icons';
 
 const QUEUES = [
   {
     title: 'AI Assist',
-    desc: 'HITL notes, OASIS & risk suggestions',
+    desc: 'Draft notes and assessment help you review',
     href: '/ai-assist',
     icon: 'ai',
-    meta: 'Lumina',
+    featured: true,
   },
   {
-    title: 'Intake worklist',
-    desc: 'SOC risk, checklists, consents',
+    title: 'Intake',
+    desc: 'New referrals and start-of-care readiness',
     href: '/intake',
     icon: 'intake',
-    meta: 'Clinical',
   },
   {
-    title: 'Orders / 485',
-    desc: 'Physician signatures outstanding',
+    title: 'Orders',
+    desc: 'Plans of care waiting on physician signature',
     href: '/orders',
     icon: 'orders',
-    meta: 'Compliance',
   },
   {
-    title: 'OASIS review',
-    desc: 'Assessments awaiting lead review',
+    title: 'Assessments',
+    desc: 'OASIS forms ready for review or completion',
     href: '/oasis',
     icon: 'oasis',
-    meta: 'Clinical',
   },
   {
-    title: 'Billing readiness',
-    desc: 'Gaps before claim export',
+    title: 'Billing',
+    desc: 'Episodes ready to bill and open gaps',
     href: '/billing',
     icon: 'billing',
-    meta: 'Revenue',
   },
   {
-    title: 'Routing HITL',
-    desc: 'Accept / reject suggestions',
+    title: 'Schedule',
+    desc: 'Suggested routes and visit assignments',
     href: '/routing',
     icon: 'routing',
-    meta: 'Ops',
   },
   {
     title: 'Hospice',
-    desc: 'Elections, LOC, cert packages',
+    desc: 'Elections, levels of care, and certifications',
     href: '/hospice',
     icon: 'hospice',
-    meta: 'Compliance',
   },
   {
-    title: 'Field tasks',
-    desc: 'Visit tasks & hospital alerts',
+    title: 'Field visits',
+    desc: 'Today’s tasks and hospital alerts',
     href: '/field-tasks',
     icon: 'field',
-    meta: 'Ops',
   },
   {
-    title: 'Org admin',
-    desc: 'Members, invites, modules',
+    title: 'Team & settings',
+    desc: 'People, invites, and agency preferences',
     href: '/admin',
     icon: 'admin',
-    meta: 'Platform',
   },
 ];
+
+function roleLabel(role?: string) {
+  if (!role) return 'Team member';
+  const map: Record<string, string> = {
+    intake_coordinator: 'Intake coordinator',
+    field_rn: 'Field clinician',
+    clinical_lead: 'Clinical lead',
+    billing: 'Billing',
+    compliance: 'Compliance',
+    admin: 'Administrator',
+  };
+  return map[role] ?? role.replace(/_/g, ' ');
+}
 
 export default function HomePage() {
   const [user, setUser] = useState<SessionUser | null>(null);
@@ -84,9 +89,9 @@ export default function HomePage() {
   return (
     <div className="ui-page">
       <PageHeader
-        eyebrow="Lumina · Command center"
-        title={first ? `Good to see you, ${first}` : 'Home Health Operating System'}
-        description="Clarity for every visit. Intelligence for every decision. Work queues for intake, AI assist, signatures, OASIS, and billing."
+        eyebrow="Home"
+        title={first ? `Welcome back, ${first}` : 'Welcome to Lumina'}
+        description="Your day at a glance — patients, visits, and what needs attention."
         actions={
           user ? (
             <div className="flex gap-2">
@@ -94,7 +99,7 @@ export default function HomePage() {
                 <Button>AI Assist</Button>
               </Link>
               <Link href="/patients/new">
-                <Button variant="secondary">New patient</Button>
+                <Button variant="secondary">Add patient</Button>
               </Link>
             </div>
           ) : (
@@ -105,10 +110,10 @@ export default function HomePage() {
         }
       />
 
-      <Alert tone="warn">
+      <Alert tone="info">
         <span>
-          <strong className="font-semibold">Demo environment</strong> — no real ePHI. Consent
-          language is NOT LEGAL FINAL.
+          <strong className="font-semibold">Demo only.</strong> Sample data — not real patients.
+          Consent wording is placeholder and not final legal language.
         </span>
       </Alert>
 
@@ -116,107 +121,84 @@ export default function HomePage() {
         <Card className="border-teal-100 bg-teal-50/40">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="text-sm font-semibold text-ink-900">Sign in to load worklists</div>
+              <div className="text-sm font-semibold text-ink-900">Sign in to get started</div>
               <p className="mt-0.5 text-sm text-ink-600">
-                Use{' '}
-                <code className="rounded bg-white px-1 font-mono text-xs ring-1 ring-ink-200">
+                Try{' '}
+                <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs ring-1 ring-ink-200">
                   coord@demo.local
                 </code>{' '}
-                or{' '}
-                <code className="rounded bg-white px-1 font-mono text-xs ring-1 ring-ink-200">
-                  lead@demo.local
-                </code>{' '}
-                — no password.
+                — no password needed.
               </p>
             </div>
             <Link href="/login">
-              <Button variant="secondary">Open login</Button>
+              <Button variant="secondary">Sign in</Button>
             </Link>
           </div>
         </Card>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Session" value={user ? 'Signed in' : 'Guest'} hint={user?.email ?? '—'} />
-        <StatCard
-          label="Role"
-          value={user?.roles[0]?.replace(/_/g, ' ') ?? '—'}
-          hint="Permission-scoped nav"
-          tone="brand"
-        />
-        <StatCard label="HITL" value="Required" hint="No auto-sign / auto-claim" tone="warn" />
-        <StatCard label="Tenant" value="org_id" hint="RLS ready for stage/prod" tone="success" />
-      </div>
+      {user && (
+        <div className="rounded-xl border border-ink-100 bg-white px-4 py-3 shadow-soft">
+          <p className="text-sm text-ink-600">
+            Signed in as <span className="font-semibold text-ink-900">{user.fullName}</span>
+            <span className="text-ink-400"> · </span>
+            <span className="text-ink-700">{roleLabel(user.roles[0])}</span>
+          </p>
+        </div>
+      )}
 
       <div>
-        <div className="mb-2 flex items-end justify-between gap-2">
-          <h2 className="text-sm font-semibold text-ink-900">Work queues</h2>
-          <span className="text-2xs text-ink-400">Open a queue to act</span>
+        <div className="mb-3 flex items-end justify-between gap-2">
+          <h2 className="text-sm font-semibold text-ink-900">Where to next</h2>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
           {QUEUES.map((q) => (
             <Link
               key={q.href}
               href={q.href}
-              className={`group flex items-start gap-3 rounded-xl border bg-white p-3.5 shadow-soft transition hover:shadow-card ${
-                q.href === '/ai-assist'
+              className={`group flex items-start gap-3.5 rounded-xl border bg-white p-4 shadow-soft transition hover:shadow-card ${
+                q.featured
                   ? 'border-teal-200 hover:border-teal-300'
-                  : 'border-ink-200 hover:border-brand-300'
+                  : 'border-ink-200/90 hover:border-teal-200'
               }`}
             >
               <span
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 ${
-                  q.href === '/ai-assist'
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${
+                  q.featured
                     ? 'bg-teal-50 text-teal-700 ring-teal-100 group-hover:bg-teal-100'
-                    : 'bg-ink-50 text-ink-600 ring-ink-100 group-hover:bg-brand-50 group-hover:text-brand-700 group-hover:ring-brand-100'
+                    : 'bg-ink-50 text-ink-600 ring-ink-100 group-hover:bg-teal-50 group-hover:text-teal-700 group-hover:ring-teal-100'
                 }`}
               >
-                <NavIcon name={q.icon} className="h-4 w-4" />
+                <NavIcon name={q.icon} className="h-4.5 w-4.5" />
               </span>
-              <span className="min-w-0">
-                <span className="flex items-center gap-2">
-                  <span
-                    className={`truncate text-sm font-semibold text-ink-900 ${
-                      q.href === '/ai-assist' ? 'group-hover:text-teal-800' : 'group-hover:text-brand-800'
-                    }`}
-                  >
-                    {q.title}
-                  </span>
+              <span className="min-w-0 pt-0.5">
+                <span className="block text-sm font-semibold text-ink-900 group-hover:text-teal-800">
+                  {q.title}
                 </span>
-                <span className="mt-0.5 block text-xs text-ink-500">{q.desc}</span>
-                <span className="mt-1.5 inline-block">
-                  <Badge tone={q.meta === 'Lumina' ? 'brand' : 'neutral'}>{q.meta}</Badge>
-                </span>
+                <span className="mt-0.5 block text-sm leading-snug text-ink-500">{q.desc}</span>
               </span>
             </Link>
           ))}
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2">
         <Card>
-          <div className="ui-kicker">API</div>
-          <a
-            href="http://localhost:3001/docs"
-            className="mt-1 block text-sm font-semibold text-brand-700 hover:underline"
-            target="_blank"
-            rel="noreferrer"
+          <div className="ui-kicker">New agency</div>
+          <Link
+            href="/onboard"
+            className="mt-1 block text-sm font-semibold text-teal-700 hover:underline"
           >
-            OpenAPI /docs
-          </a>
-          <p className="mt-1 text-xs text-ink-500">:3001 · /ready</p>
-        </Card>
-        <Card>
-          <div className="ui-kicker">Onboarding</div>
-          <Link href="/onboard" className="mt-1 block text-sm font-semibold text-brand-700 hover:underline">
-            Agency wizard
+            Set up your organization
           </Link>
-          <p className="mt-1 text-xs text-ink-500">Org · modules · invites</p>
+          <p className="mt-1 text-sm text-ink-500">Invite your team and turn on the modules you need.</p>
         </Card>
         <Card>
-          <div className="ui-kicker">Security</div>
-          <p className="mt-1 text-sm font-semibold text-ink-900">RLS · audit · HITL</p>
-          <p className="mt-1 text-xs text-ink-500">MFA path for admin / compliance</p>
+          <div className="ui-kicker">Need help?</div>
+          <p className="mt-1 text-sm font-semibold text-ink-900">You’re always in control</p>
+          <p className="mt-1 text-sm text-ink-500">
+            Suggestions never apply themselves. You review and approve every clinical decision.
+          </p>
         </Card>
       </div>
     </div>

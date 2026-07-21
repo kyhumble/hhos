@@ -3,9 +3,8 @@
 import { useCallback, useState } from 'react';
 import type { AISuggestion } from '@hhos/shared';
 import { SuggestionCard } from '@/components/SuggestionCard';
-import { Alert, Badge, Button, Card, Input, PageHeader } from '@/components/ui';
+import { Alert, Button, Card, PageHeader } from '@/components/ui';
 import { API_URL, authHeaders, getToken, readApiError } from '@/lib/api';
-import { getStoredUser } from '@/lib/auth';
 
 /** Local fallback so the UI is always demonstrable even if API flag is off. */
 function mockSuggestions(): AISuggestion[] {
@@ -21,8 +20,8 @@ function mockSuggestions(): AISuggestion[] {
       provenance: {
         modelVersion: 'mock-v0.1',
         confidence: 0.78,
-        factors: ['prior visit narrative', 'stated functional status', 'edema observation'],
-        evidence: ['previous assessment delta', 'patient self-report'],
+        factors: ['prior visit notes', 'what the patient reported', 'edema observation'],
+        evidence: ['change since last assessment', 'patient self-report'],
         generatedAt: now,
       },
       status: 'pending',
@@ -31,13 +30,13 @@ function mockSuggestions(): AISuggestion[] {
       id: crypto.randomUUID(),
       type: 'oasis_item',
       targetPath: 'oasis.M1800',
-      title: 'M1800 Grooming',
-      content: '1 — Grooming utensils must be placed within reach',
+      title: 'Grooming',
+      content: 'Needs setup — grooming items must be placed within reach',
       structured: { code: '1' },
       provenance: {
         modelVersion: 'mock-v0.1',
         confidence: 0.71,
-        factors: ['stated need for setup', 'prior M1800'],
+        factors: ['stated need for setup', 'prior assessment'],
         generatedAt: now,
       },
       status: 'pending',
@@ -47,11 +46,11 @@ function mockSuggestions(): AISuggestion[] {
       type: 'risk_flag',
       title: 'Elevated fall risk',
       content:
-        'Recent gait change + residual edema + age band. Consider focused balance assessment and home safety review this visit.',
+        'Recent change in gait, residual edema, and age. Consider a focused balance check and home safety review this visit.',
       provenance: {
         modelVersion: 'mock-v0.1',
         confidence: 0.82,
-        factors: ['gait change', 'edema', 'age band'],
+        factors: ['gait change', 'edema', 'age'],
         generatedAt: now,
       },
       status: 'pending',
@@ -60,23 +59,22 @@ function mockSuggestions(): AISuggestion[] {
 }
 
 export default function AiAssistPage() {
-  const [visitId, setVisitId] = useState('demo-visit-001');
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [source, setSource] = useState<'api' | 'local' | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const generate = useCallback(async () => {
     setLoading(true);
-    setError(null);
     setMsg(null);
 
     const token = getToken();
+    const visitId = 'demo-visit-001';
+
     if (!token) {
       setSuggestions(mockSuggestions());
       setSource('local');
-      setMsg('Showing local demo suggestions (sign in to call the live API and write audit events).');
+      setMsg('Demo suggestions — sign in for live assists on real visits.');
       setLoading(false);
       return;
     }
@@ -91,13 +89,10 @@ export default function AiAssistPage() {
       });
 
       if (!res.ok) {
-        const err = await readApiError(res);
-        // Fall back gracefully so the interface still teaches the HITL flow
+        await readApiError(res);
         setSuggestions(mockSuggestions());
         setSource('local');
-        setMsg(
-          `API unavailable (${err.message}). Showing local demo suggestions — Accept/Edit/Reject still work offline.`,
-        );
+        setMsg('Showing demo suggestions. You can still Accept, Edit, or Reject each one.');
         setLoading(false);
         return;
       }
@@ -110,29 +105,26 @@ export default function AiAssistPage() {
       if (!data.enabled || !data.suggestions?.length) {
         setSuggestions(mockSuggestions());
         setSource('local');
-        setMsg(
-          'AI suggestions feature is off or returned empty. Showing local demo. Enable FEATURE_AI_SUGGESTIONS or FEATURE_SERVICE_AI on the API.',
-        );
+        setMsg('Showing demo suggestions for this session.');
       } else {
         setSuggestions(data.suggestions);
         setSource('api');
-        setMsg(`Generated ${data.suggestions.length} suggestions · audited as ai.suggestion.generated`);
+        setMsg(`${data.suggestions.length} suggestions ready for your review.`);
       }
     } catch {
       setSuggestions(mockSuggestions());
       setSource('local');
-      setMsg('Network error — showing local demo suggestions.');
+      setMsg('Showing demo suggestions for this session.');
     } finally {
       setLoading(false);
     }
-  }, [visitId]);
+  }, []);
 
   async function decide(
     s: AISuggestion,
     decision: 'accepted' | 'edited' | 'rejected',
     humanEdit?: string,
   ) {
-    // Optimistic local update
     setSuggestions((prev) =>
       prev.map((x) =>
         x.id === s.id
@@ -146,14 +138,18 @@ export default function AiAssistPage() {
       ),
     );
 
+    const labels = {
+      accepted: 'Accepted',
+      edited: 'Saved your edit',
+      rejected: 'Dismissed',
+    } as const;
+    setMsg(labels[decision]);
+
     const token = getToken();
-    if (!token || source !== 'api') {
-      setMsg(`${decision} (local only — sign in + live API to persist audit)`);
-      return;
-    }
+    if (!token || source !== 'api') return;
 
     try {
-      const res = await fetch(`${API_URL}/v1/ai/suggestions/${s.id}/decision`, {
+      await fetch(`${API_URL}/v1/ai/suggestions/${s.id}/decision`, {
         method: 'POST',
         headers: {
           ...authHeaders(token),
@@ -163,94 +159,55 @@ export default function AiAssistPage() {
           decision,
           humanEdit,
           targetResourceType: 'Visit',
-          targetResourceId: visitId,
+          targetResourceId: 'demo-visit-001',
         }),
       });
-      if (!res.ok) {
-        const err = await readApiError(res);
-        setError(`Decision recorded locally; audit call failed: ${err.message}`);
-        return;
-      }
-      setMsg(`${decision} · audited as ai.suggestion.${decision}`);
     } catch {
-      setError('Decision saved locally; could not reach API for audit.');
+      // Decision already shown in UI; silent on network failure for product calm
     }
   }
 
-  const user = typeof window !== 'undefined' ? getStoredUser() : null;
   const pending = suggestions.filter((s) => s.status === 'pending').length;
   const acted = suggestions.length - pending;
 
   return (
     <div className="ui-page">
       <PageHeader
-        eyebrow="Lumina"
+        eyebrow="Care"
         title="AI Assist"
-        description="Human-in-the-loop suggestions for notes, OASIS items, and risk flags. Nothing is applied until you Accept, Edit, or Reject."
+        description="Suggestions for notes, assessments, and risks. Nothing is applied until you approve it."
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {source && (
-              <Badge tone={source === 'api' ? 'success' : 'neutral'}>
-                {source === 'api' ? 'Live API' : 'Local demo'}
-              </Badge>
-            )}
-            <Button size="sm" onClick={() => void generate()} disabled={loading}>
-              {loading ? 'Generating…' : 'Generate suggestions'}
-            </Button>
-          </div>
+          <Button size="sm" onClick={() => void generate()} disabled={loading}>
+            {loading ? 'Working…' : suggestions.length ? 'Refresh suggestions' : 'Get suggestions'}
+          </Button>
         }
       />
 
       <Alert tone="info">
-        <div>
-          <strong className="font-semibold">Always human-in-the-loop.</strong> AI never
-          auto-finalizes clinical content. Every generation and decision is audited when the live
-          API is available.
-        </div>
+        <span>
+          <strong className="font-semibold">You’re in control.</strong> Review each suggestion.
+          Accept, edit, or dismiss — AI never writes to the chart on its own.
+        </span>
       </Alert>
 
-      <Card className="border-teal-100 bg-gradient-to-br from-teal-50/60 via-white to-white">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0 flex-1">
-            <label className="ui-label" htmlFor="visit-id">
-              Visit ID
-            </label>
-            <Input
-              id="visit-id"
-              value={visitId}
-              onChange={(e) => setVisitId(e.target.value)}
-              placeholder="visit uuid or demo id"
-              className="max-w-md font-mono text-xs"
-            />
-            <p className="mt-1.5 text-xs text-ink-500">
-              {user
-                ? `Signed in as ${user.fullName} · suggestions call POST /v1/ai/visits/:id/suggestions`
-                : 'Not signed in — Generate will use local demo suggestions'}
-            </p>
+      {suggestions.length > 0 && (
+        <div className="flex flex-wrap gap-3">
+          <div className="rounded-xl bg-white px-4 py-2.5 shadow-soft ring-1 ring-ink-100">
+            <div className="text-2xs font-semibold uppercase tracking-wide text-ink-400">To review</div>
+            <div className="font-display text-xl font-semibold text-ink-900">{pending}</div>
           </div>
-          <div className="flex flex-wrap gap-3 text-sm">
-            <div className="rounded-lg bg-white px-3 py-2 shadow-soft ring-1 ring-ink-100">
-              <div className="text-2xs font-semibold uppercase tracking-wide text-ink-400">
-                Pending
-              </div>
-              <div className="font-display text-lg font-semibold text-ink-900">{pending}</div>
-            </div>
-            <div className="rounded-lg bg-white px-3 py-2 shadow-soft ring-1 ring-ink-100">
-              <div className="text-2xs font-semibold uppercase tracking-wide text-ink-400">
-                Acted
-              </div>
-              <div className="font-display text-lg font-semibold text-teal-700">{acted}</div>
-            </div>
+          <div className="rounded-xl bg-white px-4 py-2.5 shadow-soft ring-1 ring-ink-100">
+            <div className="text-2xs font-semibold uppercase tracking-wide text-ink-400">Done</div>
+            <div className="font-display text-xl font-semibold text-teal-700">{acted}</div>
           </div>
         </div>
-      </Card>
+      )}
 
       {msg && <Alert tone="info">{msg}</Alert>}
-      {error && <Alert tone="error">{error}</Alert>}
 
       {suggestions.length === 0 ? (
-        <Card className="border-dashed border-ink-200 bg-ink-50/40 py-14 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-100 text-teal-700">
+        <Card className="border-dashed border-ink-200 bg-ink-50/30 py-16 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-100 text-teal-700">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path
                 strokeLinecap="round"
@@ -259,25 +216,20 @@ export default function AiAssistPage() {
               />
             </svg>
           </div>
-          <p className="text-sm font-semibold text-ink-900">No suggestions yet</p>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-ink-500">
-            Generate AI assists for this visit. You will review each one — nothing applies without
-            your action.
+          <p className="text-base font-semibold text-ink-900">No suggestions yet</p>
+          <p className="mx-auto mt-1.5 max-w-sm text-sm text-ink-500">
+            Get draft help for notes, assessments, and risk flags. You’ll review every item before
+            anything is kept.
           </p>
-          <div className="mt-5">
+          <div className="mt-6">
             <Button onClick={() => void generate()} disabled={loading}>
-              {loading ? 'Generating…' : 'Generate suggestions'}
+              {loading ? 'Working…' : 'Get suggestions'}
             </Button>
           </div>
         </Card>
       ) : (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-ink-900">Suggestions for review</h2>
-            <Button size="sm" variant="ghost" onClick={() => void generate()} disabled={loading}>
-              Regenerate
-            </Button>
-          </div>
+          <h2 className="text-sm font-semibold text-ink-900">For your review</h2>
           {suggestions.map((s) => (
             <SuggestionCard
               key={s.id}
@@ -290,14 +242,12 @@ export default function AiAssistPage() {
         </div>
       )}
 
-      <Card>
-        <div className="ui-kicker">How this works</div>
-        <ul className="mt-2 space-y-1.5 text-sm text-ink-600">
-          <li>• Confidence and rationale are always visible before you act.</li>
-          <li>• Accept / Edit / Reject are the only paths — no silent apply.</li>
-          <li>• Live API writes audit events: generated, accepted, edited, rejected.</li>
-          <li>• Real models replace the mock later; the HITL contract stays the same.</li>
-        </ul>
+      <Card className="bg-ink-50/40">
+        <p className="text-sm text-ink-600">
+          <span className="font-semibold text-ink-800">How it works.</span> Each card shows why it
+          was suggested. Accept to keep it, edit to change it, or dismiss if it’s not right. Nothing
+          reaches the patient record without you.
+        </p>
       </Card>
     </div>
   );

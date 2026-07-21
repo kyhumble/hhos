@@ -13,20 +13,20 @@ function navActive(pathname: string, href: string) {
 }
 
 function pageTitle(pathname: string): string {
-  if (pathname === '/') return 'Dashboard';
+  if (pathname === '/') return 'Home';
   const map: Record<string, string> = {
     '/ai-assist': 'AI Assist',
     '/intake': 'Intake',
-    '/oasis': 'OASIS',
-    '/tasks': 'Clinical tasks',
-    '/routing': 'Routing',
-    '/field-tasks': 'Field tasks',
-    '/orders': 'Orders / 485',
+    '/oasis': 'Assessments',
+    '/tasks': 'Care tasks',
+    '/routing': 'Schedule',
+    '/field-tasks': 'Visits',
+    '/orders': 'Orders',
     '/hospice': 'Hospice',
     '/billing': 'Billing',
-    '/admin': 'Organization',
-    '/onboard': 'Onboarding',
-    '/patients/new': 'New patient',
+    '/admin': 'Team & settings',
+    '/onboard': 'New agency',
+    '/patients/new': 'Add patient',
   };
   for (const [k, v] of Object.entries(map)) {
     if (pathname === k || pathname.startsWith(`${k}/`)) return v;
@@ -45,13 +45,18 @@ function pageCrumb(pathname: string): string {
     pathname.startsWith('/oasis') ||
     pathname.startsWith('/tasks')
   ) {
-    return 'Clinical';
+    return 'Care';
   }
-  if (pathname.startsWith('/routing') || pathname.startsWith('/field')) return 'Operations';
-  if (pathname.startsWith('/orders') || pathname.startsWith('/hospice')) return 'Compliance';
-  if (pathname.startsWith('/billing')) return 'Revenue';
-  if (pathname.startsWith('/admin') || pathname.startsWith('/onboard')) return 'Platform';
-  return 'Console';
+  if (pathname.startsWith('/routing') || pathname.startsWith('/field')) return 'Field';
+  if (
+    pathname.startsWith('/orders') ||
+    pathname.startsWith('/hospice') ||
+    pathname.startsWith('/billing')
+  ) {
+    return 'Records';
+  }
+  if (pathname.startsWith('/admin') || pathname.startsWith('/onboard')) return 'Agency';
+  return 'Lumina';
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -85,7 +90,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const sidebar = (
     <div className="flex h-full flex-col bg-[#0a1628] text-white">
-      {/* Brand mark */}
       <div className="flex h-[var(--header-h)] items-center gap-3 border-b border-white/5 px-4">
         <div className="relative flex h-9 w-9 items-center justify-center">
           <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-teal-400 to-teal-600 opacity-90" />
@@ -93,9 +97,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <div className="min-w-0 leading-tight">
           <div className="truncate text-[14px] font-semibold tracking-tight text-white">Lumina</div>
-          <div className="truncate text-[10px] font-medium text-teal-400/80">
-            Home-based care OS
-          </div>
+          <div className="truncate text-[10px] font-medium text-teal-400/80">Home-based care</div>
         </div>
       </div>
 
@@ -148,7 +150,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-xs font-semibold text-slate-100">{user.fullName}</div>
-                <div className="truncate text-[10px] text-slate-500">
+                <div className="truncate text-[10px] capitalize text-slate-500">
                   {user.roles[0]?.replace(/_/g, ' ')}
                 </div>
               </div>
@@ -169,7 +171,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             Sign in
           </Link>
         )}
-        <p className="mt-2.5 text-center text-[10px] text-slate-600">Synthetic · non-PHI</p>
+        <p className="mt-2.5 text-center text-[10px] text-slate-600">Demo · sample data only</p>
       </div>
     </div>
   );
@@ -222,7 +224,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 href="/patients/new"
                 className="ui-btn-secondary ui-btn-sm hidden md:inline-flex"
               >
-                New patient
+                Add patient
               </Link>
               <span className="hidden items-center gap-1.5 rounded-full border border-teal-100 bg-teal-50 px-2.5 py-1 text-2xs font-medium text-teal-800 sm:inline-flex">
                 <span className="ui-dot bg-teal-500" />
